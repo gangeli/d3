@@ -6035,31 +6035,22 @@
   };
   d3.geo.composite = function() {
     function composite(coordinates) {
-      var t = n * (d3_geo_radians * coordinates[0] - lng0), p = Math.sqrt(C - 2 * n * Math.sin(d3_geo_radians * coordinates[1])) / n;
-      return [ scale * p * Math.sin(t) + translate[0], scale * (p * Math.cos(t) - p0) + translate[1] ];
+      var x1 = coordinates[0] * d3_geo_radians - x0, y1 = coordinates[1] * d3_geo_radians, cx1 = Math.cos(x1), sx1 = Math.sin(x1), cy1 = Math.cos(y1), sy1 = Math.sin(y1), cc = mode !== "orthographic" ? sy0 * sy1 + cy0 * cy1 * cx1 : null, c, k = mode === "stereographic" ? 1 / (1 + cc) : mode === "gnomonic" ? 1 / cc : mode === "equidistant" ? (c = Math.acos(cc), c ? c / Math.sin(c) : 0) : mode === "equalarea" ? Math.sqrt(2 / (1 + cc)) : 1, x = k * cy1 * sx1, y = k * (sy0 * cy1 * cx1 - cy0 * sy1);
+      return [ scale * x + translate[0], scale * y + translate[1] ];
     }
-    function reload() {
-      var phi1 = d3_geo_radians * parallels[0], phi2 = d3_geo_radians * parallels[1], lat0 = d3_geo_radians * origin[1], s = Math.sin(phi1), c = Math.cos(phi1);
-      lng0 = d3_geo_radians * origin[0];
-      n = .5 * (s + Math.sin(phi2));
-      C = c * c + 2 * n * s;
-      p0 = Math.sqrt(C - 2 * n * Math.sin(lat0)) / n;
-      return composite;
-    }
-    var origin = [ -98, 38 ], parallels = [ 29.5, 45.5 ], scale = 1e3, translate = [ 480, 250 ], lng0, n, C, p0;
+    var mode = "orthographic", origin, scale = 200, translate = [ 480, 250 ], x0, y0, cy0, sy0;
     composite.invert = function(coordinates) {
-      var x = (coordinates[0] - translate[0]) / scale, y = (coordinates[1] - translate[1]) / scale, p0y = p0 + y, t = Math.atan2(x, p0y), p = Math.sqrt(x * x + p0y * p0y);
-      return [ (lng0 + t / n) / d3_geo_radians, Math.asin((C - p * p * n * n) / (2 * n)) / d3_geo_radians ];
+      var x = (coordinates[0] - translate[0]) / scale, y = (coordinates[1] - translate[1]) / scale, p = Math.sqrt(x * x + y * y), c = mode === "stereographic" ? 2 * Math.atan(p) : mode === "gnomonic" ? Math.atan(p) : mode === "equidistant" ? p : mode === "equalarea" ? 2 * Math.asin(.5 * p) : Math.asin(p), sc = Math.sin(c), cc = Math.cos(c);
+      return [ (x0 + Math.atan2(x * sc, p * cy0 * cc + y * sy0 * sc)) / d3_geo_radians, Math.asin(cc * sy0 - (p ? y * sc * cy0 / p : 0)) / d3_geo_radians ];
     };
     composite.origin = function(x) {
       if (!arguments.length) return origin;
-      origin = [ +x[0], +x[1] ];
-      return reload();
-    };
-    composite.parallels = function(x) {
-      if (!arguments.length) return parallels;
-      parallels = [ +x[0], +x[1] ];
-      return reload();
+      origin = x;
+      x0 = origin[0] * d3_geo_radians;
+      y0 = origin[1] * d3_geo_radians;
+      cy0 = Math.cos(y0);
+      sy0 = Math.sin(y0);
+      return composite;
     };
     composite.scale = function(x) {
       if (!arguments.length) return scale;
@@ -6071,7 +6062,7 @@
       translate = [ +x[0], +x[1] ];
       return composite;
     };
-    return reload();
+    return composite.origin([ 0, 0 ]);
   };
   d3.geo.equirectangular = function() {
     function equirectangular(coordinates) {
