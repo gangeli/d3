@@ -21,7 +21,7 @@ d3.geo.path = function() {
   }
 
   function project(coordinates) {
-    var projected = projection(coordinates)
+    var projected = projection(coordinates, true)
     if (projected.length == 3) {
       return [projected[0] + "," + projected[1], projected[2]];
     } else {

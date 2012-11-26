@@ -6035,11 +6035,15 @@
   };
   var d3_geo_radians = Math.PI / 180;
   d3.geo.composite = function(viewport) {
-    function composite(coordinates_degrees) {
+    function composite(coordinates_degrees, return_wrap) {
       function generalized_hammer(B) {
         var sqrt2 = Math.sqrt(2), sin_lon_over_b = Math.sin(lon / B), cos_lon_over_b = Math.cos(lon / B), nu = 4 * Math.sqrt(1 + clat * cos_lon_over_b);
         x = B * sqrt2 * clat * sin_lon_over_b / nu, y = -sqrt2 * slat / nu;
-        return [ scale * smaller_dimension * x + viewport_center[0], scale * smaller_dimension * y + viewport_center[1], have_wrapped ];
+        if (return_wrap) {
+          return [ scale * smaller_dimension * x + viewport_center[0], scale * smaller_dimension * y + viewport_center[1], have_wrapped ];
+        } else {
+          return [ scale * smaller_dimension * x + viewport_center[0], scale * smaller_dimension * y + viewport_center[1] ];
+        }
       }
       var lon = coordinates_degrees[0] * d3_geo_radians - origin[0], lat = coordinates_degrees[1] * d3_geo_radians - origin[1], clon = Math.cos(lon), slon = Math.sin(lon), clat = Math.cos(lat), slat = Math.sin(lat);
       var have_wrapped = false;
@@ -6144,7 +6148,7 @@
       return result;
     }
     function project(coordinates) {
-      var projected = projection(coordinates);
+      var projected = projection(coordinates, true);
       if (projected.length == 3) {
         return [ projected[0] + "," + projected[1], projected[2] ];
       } else {

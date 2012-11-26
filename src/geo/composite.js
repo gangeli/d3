@@ -19,7 +19,26 @@ d3.geo.composite = function(viewport) {
   albers.translate(viewport_center);
   mercator.translate(viewport_center);
 
-  function composite(coordinates_degrees) {
+  var update_albers = function() {
+    var origin_degrees = [
+        origin[0] / d3_geo_radians,
+        origin[1] / d3_geo_radians
+      ];
+    var top_latitude    = origin[1] + Math.sin( 1.0 / (4.0 * scale) );
+    var bottom_latitude = origin[1] - Math.sin( 1.0 / (4.0 * scale) );
+    var latitude_range = top_latitude - bottom_latitude;
+    console.log(
+      (bottom_latitude + 15.0 * latitude_range / 100.0) / d3_geo_radians,
+      (top_latitude - 15.0 * latitude_range / 100.0) / d3_geo_radians);
+    albers.parallels([
+      (bottom_latitude + 15.0 * latitude_range / 100.0) / d3_geo_radians,
+      (top_latitude - 15.0 * latitude_range / 100.0) / d3_geo_radians
+      ]);
+    albers.origin(origin_degrees);
+    albers.scale(scale * smaller_dimension / 2.0);
+  }
+
+  function composite(coordinates_degrees, return_wrap) {
     var lon = coordinates_degrees[0] * d3_geo_radians - origin[0],
         lat = coordinates_degrees[1] * d3_geo_radians - origin[1],
         clon = Math.cos(lon),
@@ -40,21 +59,28 @@ d3.geo.composite = function(viewport) {
       var sqrt2 = Math.sqrt(2),
           sin_lon_over_b = Math.sin(lon / B),
           cos_lon_over_b = Math.cos(lon / B),
-          nu = 4.0 * Math.sqrt(1 + clat * cos_lon_over_b)
+          nu = 2.0 * Math.sqrt(1 + clat * cos_lon_over_b)
           x = B * sqrt2 * clat * sin_lon_over_b / nu,
           y = - sqrt2 * slat / nu;
-      return [
-        scale * smaller_dimension * x  + viewport_center[0],
-        scale * smaller_dimension * y  + viewport_center[1],
-        have_wrapped
-      ];
+      if( return_wrap ) {
+        return [
+          scale * smaller_dimension * x  + viewport_center[0],
+          scale * smaller_dimension * y  + viewport_center[1],
+          have_wrapped
+        ];
+      } else {
+        return [
+          scale * smaller_dimension * x  + viewport_center[0],
+          scale * smaller_dimension * y  + viewport_center[1]
+        ];
+      }
     }
     // Decision Tree
     if (scale <= 1.5) {
       return generalized_hammer(2.0);
     } else if (scale <= 2.0) {
       return generalized_hammer( 2.0 - (scale-1.5) * 2.0 );
-    } else if (scale <= 4.0) {
+    } else if (scale <= 5.0) {
       return generalized_hammer(1.0);
     } else if (scale <= 13) {
       return albers(coordinates_degrees);
@@ -86,15 +112,15 @@ d3.geo.composite = function(viewport) {
       origin_degrees[0] * d3_geo_radians,
       origin_degrees[1] * d3_geo_radians
     ]
-    albers.origin(origin_degrees);
+    update_albers()
     return composite;
   };
 
   composite.scale = function(x) {
     if (!arguments.length) return scale;
     scale = +x;
-    albers.scale(x * 100); // TODO(gangeli) this scaling factor is wrong
     mercator.scale(x * smaller_dimension);
+    update_albers()
     return composite;
   };
 
