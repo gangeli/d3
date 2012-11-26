@@ -12,7 +12,8 @@ d3.geo.path = function() {
       buffer = [];
 
   function path(d, i) {
-    if (typeof pointRadius === "function") pointCircle = d3_path_circle(pointRadius.apply(this, arguments));
+    if (typeof pointRadius === "function")
+      pointCircle = d3_path_circle(pointRadius.apply(this, arguments));
     pathType(d);
     var result = buffer.length ? buffer.join("") : null;
     buffer = [];
@@ -20,7 +21,12 @@ d3.geo.path = function() {
   }
 
   function project(coordinates) {
-    return projection(coordinates).join(",");
+    var projected = projection(coordinates)
+    if (projected.length == 3) {
+      return [projected[0] + "," + projected[1], projected[2]];
+    } else {
+      return [projected.join(","), false];
+    }
   }
 
   var pathType = d3_geo_type({
@@ -37,14 +43,14 @@ d3.geo.path = function() {
     },
 
     Point: function(o) {
-      buffer.push("M", project(o.coordinates), pointCircle);
+      buffer.push("M", project(o.coordinates)[0], pointCircle);
     },
 
     MultiPoint: function(o) {
       var coordinates = o.coordinates,
           i = -1, // coordinates.index
           n = coordinates.length;
-      while (++i < n) buffer.push("M", project(coordinates[i]), pointCircle);
+      while (++i < n) buffer.push("M", project(coordinates[i])[0], pointCircle);
     },
 
     LineString: function(o) {
@@ -52,7 +58,12 @@ d3.geo.path = function() {
           i = -1, // coordinates.index
           n = coordinates.length;
       buffer.push("M");
-      while (++i < n) buffer.push(project(coordinates[i]), "L");
+      last_point_wrapped = false;
+      while (++i < n) {
+        var projected = project(coordinates[i])
+        buffer.push(projected[0], projected[1] == last_point_wrapped ? "L" : "M");
+        last_point_wrapped = projected[1]
+      }
       buffer.pop();
     },
 
@@ -68,7 +79,12 @@ d3.geo.path = function() {
         j = -1;
         m = subcoordinates.length;
         buffer.push("M");
-        while (++j < m) buffer.push(project(subcoordinates[j]), "L");
+        last_point_wrapped = false;
+        while (++j < m) {
+          var projected = project(subcoordinates[j])
+          buffer.push(projected[0], projected[1] == last_point_wrapped ? "L" : "M");
+          last_point_wrapped = projected[1]
+        }
         buffer.pop();
       }
     },
@@ -84,9 +100,13 @@ d3.geo.path = function() {
         subcoordinates = coordinates[i];
         j = -1;
         if ((m = subcoordinates.length - 1) > 0) {
-          buffer.push("M");
-          while (++j < m) buffer.push(project(subcoordinates[j]), "L");
-          buffer[buffer.length - 1] = "Z";
+          last_point_wrapped = !project(subcoordinates[0])[1];
+          while (++j < m) {
+            var projected = project(subcoordinates[j])
+            buffer.push(projected[1] == last_point_wrapped ? "L" : "M", projected[0]);
+            last_point_wrapped = projected[1]
+          }
+          buffer.push("Z");
         }
       }
     },
@@ -109,9 +129,13 @@ d3.geo.path = function() {
           subsubcoordinates = subcoordinates[j];
           k = -1;
           if ((p = subsubcoordinates.length - 1) > 0) {
-            buffer.push("M");
-            while (++k < p) buffer.push(project(subsubcoordinates[k]), "L");
-            buffer[buffer.length - 1] = "Z";
+            last_point_wrapped = !project(subsubcoordinates[0])[1];
+            while (++k < p) {
+              var projected = project(subsubcoordinates[k])
+              buffer.push(projected[1] == last_point_wrapped ? "L" : "M", projected[0]);
+              last_point_wrapped = projected[1]
+            }
+            buffer.push("Z");
           }
         }
       }

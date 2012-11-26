@@ -20,13 +20,21 @@ d3.geo.composite = function(viewport) {
   mercator.translate(viewport_center);
 
   function composite(coordinates_degrees) {
-    var lon_degrees = coordinates_degrees[0],
-        lon = coordinates_degrees[0] * d3_geo_radians - origin[0],
+    var lon = coordinates_degrees[0] * d3_geo_radians - origin[0],
         lat = coordinates_degrees[1] * d3_geo_radians - origin[1],
         clon = Math.cos(lon),
         slon = Math.sin(lon),
         clat = Math.cos(lat),
         slat = Math.sin(lat);
+    var have_wrapped = false;
+    if (lon < -3.1415926535) {
+      lon += 3.1415926535 * 2.0;
+      have_wrapped = true;
+    }
+    if (lon > 3.1415926535) {
+      lon -= 3.1415926535 * 2.0;
+      have_wrapped = true;
+    }
     // Encompasses Hammer (B = 2) and Lambert Azimuthal (B = 1)
     function generalized_hammer(B) {
       var sqrt2 = Math.sqrt(2),
@@ -37,7 +45,8 @@ d3.geo.composite = function(viewport) {
           y = - sqrt2 * slat / nu;
       return [
         scale * smaller_dimension * x  + viewport_center[0],
-        scale * smaller_dimension * y  + viewport_center[1]
+        scale * smaller_dimension * y  + viewport_center[1],
+        have_wrapped
       ];
     }
     // Decision Tree

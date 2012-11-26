@@ -6039,9 +6039,18 @@
       function generalized_hammer(B) {
         var sqrt2 = Math.sqrt(2), sin_lon_over_b = Math.sin(lon / B), cos_lon_over_b = Math.cos(lon / B), nu = 4 * Math.sqrt(1 + clat * cos_lon_over_b);
         x = B * sqrt2 * clat * sin_lon_over_b / nu, y = -sqrt2 * slat / nu;
-        return [ scale * smaller_dimension * x + viewport_center[0], scale * smaller_dimension * y + viewport_center[1] ];
+        return [ scale * smaller_dimension * x + viewport_center[0], scale * smaller_dimension * y + viewport_center[1], have_wrapped ];
       }
       var lon = coordinates_degrees[0] * d3_geo_radians - origin[0], lat = coordinates_degrees[1] * d3_geo_radians - origin[1], clon = Math.cos(lon), slon = Math.sin(lon), clat = Math.cos(lat), slat = Math.sin(lat);
+      var have_wrapped = false;
+      if (lon < -3.1415926535) {
+        lon += 3.1415926535 * 2;
+        have_wrapped = true;
+      }
+      if (lon > 3.1415926535) {
+        lon -= 3.1415926535 * 2;
+        have_wrapped = true;
+      }
       if (scale <= 1.5) {
         return generalized_hammer(2);
       } else if (scale <= 2) {
@@ -6049,17 +6058,17 @@
       } else if (scale <= 4) {
         return generalized_hammer(1);
       } else if (scale <= 13) {
-        return generalized_hammer(1);
+        return albers(coordinates_degrees);
       } else if (scale <= 15) {
-        var lambda = scale - 13 / 2, a = generalized_hammer(1), b = mercator(coordinates_degrees);
-        return [ lambda * a[0], (1 - lambda) * b[0], lambda * a[1], (1 - lambda) * b[1] ];
+        var lambda = (scale - 13) / 2, a = albers(coordinates_degrees), b = mercator(coordinates_degrees);
+        return [ (1 - lambda) * a[0] + lambda * b[0], (1 - lambda) * a[1] + lambda * b[1] ];
       } else {
         return mercator(coordinates_degrees);
       }
     }
     var origin, scale = 1, width = viewport[2] - viewport[0], height = viewport[3] - viewport[1], smaller_dimension = Math.min(width, height), viewport_center = [ viewport[0] + width / 2, viewport[1] + height / 2 ];
-    var ablers = d3.geo.albers(), mercator = d3.geo.mercator();
-    ablers.translate(viewport_center);
+    var albers = d3.geo.albers(), mercator = d3.geo.mercator();
+    albers.translate(viewport_center);
     mercator.translate(viewport_center);
     composite.invert = function(coordinates) {
       console.log("I was called");
@@ -6070,12 +6079,13 @@
         return [ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ];
       }
       origin = [ origin_degrees[0] * d3_geo_radians, origin_degrees[1] * d3_geo_radians ];
+      albers.origin(origin_degrees);
       return composite;
     };
     composite.scale = function(x) {
       if (!arguments.length) return scale;
       scale = +x;
-      ablers.scale(x * smaller_dimension);
+      albers.scale(x * 100);
       mercator.scale(x * smaller_dimension);
       return composite;
     };
@@ -6134,7 +6144,12 @@
       return result;
     }
     function project(coordinates) {
-      return projection(coordinates).join(",");
+      var projected = projection(coordinates);
+      if (projected.length == 3) {
+        return [ projected[0] + "," + projected[1], projected[2] ];
+      } else {
+        return [ projected.join(","), false ];
+      }
     }
     function polygonArea(coordinates) {
       var sum = area(coordinates[0]), i = 0, n = coordinates.length;
@@ -6166,16 +6181,21 @@
         pathType(o.geometry);
       },
       Point: function(o) {
-        buffer.push("M", project(o.coordinates), pointCircle);
+        buffer.push("M", project(o.coordinates)[0], pointCircle);
       },
       MultiPoint: function(o) {
         var coordinates = o.coordinates, i = -1, n = coordinates.length;
-        while (++i < n) buffer.push("M", project(coordinates[i]), pointCircle);
+        while (++i < n) buffer.push("M", project(coordinates[i])[0], pointCircle);
       },
       LineString: function(o) {
         var coordinates = o.coordinates, i = -1, n = coordinates.length;
         buffer.push("M");
-        while (++i < n) buffer.push(project(coordinates[i]), "L");
+        last_point_wrapped = false;
+        while (++i < n) {
+          var projected = project(coordinates[i]);
+          buffer.push(projected[0], projected[1] == last_point_wrapped ? "L" : "M");
+          last_point_wrapped = projected[1];
+        }
         buffer.pop();
       },
       MultiLineString: function(o) {
@@ -6185,7 +6205,12 @@
           j = -1;
           m = subcoordinates.length;
           buffer.push("M");
-          while (++j < m) buffer.push(project(subcoordinates[j]), "L");
+          last_point_wrapped = false;
+          while (++j < m) {
+            var projected = project(subcoordinates[j]);
+            buffer.push(projected[0], projected[1] == last_point_wrapped ? "L" : "M");
+            last_point_wrapped = projected[1];
+          }
           buffer.pop();
         }
       },
@@ -6195,9 +6220,13 @@
           subcoordinates = coordinates[i];
           j = -1;
           if ((m = subcoordinates.length - 1) > 0) {
-            buffer.push("M");
-            while (++j < m) buffer.push(project(subcoordinates[j]), "L");
-            buffer[buffer.length - 1] = "Z";
+            last_point_wrapped = !project(subcoordinates[0])[1];
+            while (++j < m) {
+              var projected = project(subcoordinates[j]);
+              buffer.push(projected[1] == last_point_wrapped ? "L" : "M", projected[0]);
+              last_point_wrapped = projected[1];
+            }
+            buffer.push("Z");
           }
         }
       },
@@ -6211,9 +6240,13 @@
             subsubcoordinates = subcoordinates[j];
             k = -1;
             if ((p = subsubcoordinates.length - 1) > 0) {
-              buffer.push("M");
-              while (++k < p) buffer.push(project(subsubcoordinates[k]), "L");
-              buffer[buffer.length - 1] = "Z";
+              last_point_wrapped = !project(subsubcoordinates[0])[1];
+              while (++k < p) {
+                var projected = project(subsubcoordinates[k]);
+                buffer.push(projected[1] == last_point_wrapped ? "L" : "M", projected[0]);
+                last_point_wrapped = projected[1];
+              }
+              buffer.push("Z");
             }
           }
         }
