@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+    <title>Composite Projection</title>
+    <script type="text/javascript" src="../../d3.v2.js"></script>
+    <script type="text/javascript" src="../../src/geo/composite.js"></script>
+    <script type="text/javascript" src="../../lib/jquery/jquery.min.js"></script>
+    <script type="text/javascript" src="../../lib/jquery-ui/jquery-ui.min.js"></script>
+    <style type="text/css">
+
+@import url("../../lib/jquery-ui/jquery-ui.css");
+
+body, .ui-widget {
+  font: 14px Helvetica Neue;
+}
+
+svg {
+  width: 960px;
+  height: 500px;
+  border: solid 1px #ccc;
+  background: #eee;
+}
+
+#states path {
+  fill: #ccc;
+  stroke: #fff;
+}
+
+#states circle {
+  fill: #fcc;
+  stroke: #000;
+}
+
+div {
+  width: 960px;
+}
+
+    </style>
+  </head>
+  <body>
+    <h3>Composite Projection</h3>
+    <script type="text/javascript">
+
+// Our projection.
+var xy = d3.geo.composite([0,0, 960, 500]),
+    path = d3.geo.path().projection(xy);
+
+d3.select("body")
+  .append("svg")
+  .append("g")
+    .attr("id", "states");
+
+d3.json("../data/world-countries.json", function(collection) {
+  d3.select("#states")
+    .selectAll("path")
+      .data(collection.features)
+    .enter().append("path")
+      .attr("d", path);
+  d3.select("#states")
+    .append("circle")
+      .attr("r", 10)
+      .attr("transform", "translate(" + xy(xy.origin()).join(",") + ")")
+});
+
+function refresh() {
+  d3.selectAll("#states path")
+      .attr("d", path);
+  d3.select("#states circle")
+      .attr("transform", "translate(" + xy(xy.origin()).join(",") + ")")
+  d3.select("#lon span")
+      .text(xy.origin()[0]);
+  d3.select("#lat span")
+      .text(xy.origin()[1]);
+  d3.select("#scale span")
+      .text(xy.scale());
+}
+
+    </script><p>
+    <div id="lon">origin.longitude: <span>0</span></div>
+    <div id="lat">origin.latitude: <span>0</span></div><p>
+    <div id="scale">scale: <span>1</span></div><p>
+    <script type="text/javascript">
+
+$("#lon").slider({
+  min: -180,
+  max: 180,
+  step: 1e-1,
+  value: 0,
+  slide: function(event, ui) {
+    var origin = xy.origin();
+    origin[0] = ui.value;
+    xy.origin(origin);
+    refresh();
+  }
+});
+
+$("#lat").slider({
+  min: -90,
+  max: 90,
+  step: 1e-1,
+  value: 0,
+  slide: function(event, ui) {
+    var origin = xy.origin();
+    origin[1] = ui.value;
+    xy.origin(origin);
+    refresh();
+  }
+});
+
+$("#scale").slider({
+  min: 0,
+  max: 17,
+  step: 0.1,
+  value: 1,
+  slide: function(event, ui) {
+    xy.scale(ui.value);
+    refresh();
+  }
+});
+
+    </script>
+  </body>
+</html>

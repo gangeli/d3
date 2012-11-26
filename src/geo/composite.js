@@ -20,7 +20,8 @@ d3.geo.composite = function(viewport) {
   mercator.translate(viewport_center);
 
   function composite(coordinates_degrees) {
-    var lon = coordinates_degrees[0] * d3_geo_radians - origin[0],
+    var lon_degrees = coordinates_degrees[0],
+        lon = coordinates_degrees[0] * d3_geo_radians - origin[0],
         lat = coordinates_degrees[1] * d3_geo_radians - origin[1],
         clon = Math.cos(lon),
         slon = Math.sin(lon),
