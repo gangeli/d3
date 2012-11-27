@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
-    <title>Composite Projection</title>
-    <script type="text/javascript" src="../../d3.v2.js"></script>
-    <script type="text/javascript" src="projection.js"></script>
-    <script type="text/javascript" src="../../src/geo/composite.js"></script>
-    <script type="text/javascript" src="../../src/geo/hammer.js"></script>
-    <script type="text/javascript" src="../../src/geo/lambert.js"></script>
-    <script type="text/javascript" src="../../src/geo/type.js"></script>
-    <script type="text/javascript" src="../../src/geo/path.js"></script>
-    <script type="text/javascript" src="../../lib/jquery/jquery.min.js"></script>
-    <script type="text/javascript" src="../../lib/jquery-ui/jquery-ui.min.js"></script>
-    <style type="text/css">
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+<title>Composite Projection</title>
+<script type="text/javascript" src="../../d3.v2.js"></script>
+<script type="text/javascript" src="projection.js"></script>
+<script type="text/javascript" src="../../src/geo/composite.js"></script>
+<script type="text/javascript" src="../../src/geo/hammer.js"></script>
+<script type="text/javascript" src="../../src/geo/lambert.js"></script>
+<script type="text/javascript" src="../../src/geo/type.js"></script>
+<script type="text/javascript" src="../../src/geo/path.js"></script>
+<script type="text/javascript" src="../../lib/jquery/jquery.min.js"></script>
+<script type="text/javascript" src="../../lib/jquery-ui/jquery-ui.min.js"></script>
+<style type="text/css">
 
 @import url("../../lib/jquery-ui/jquery-ui.css");
 
@@ -46,10 +46,6 @@ svg {
   stroke-width: 2px;
 }
 
-div {
-  width: 960px;
-}
-
 
 #states2 path {
   fill: #888;
@@ -67,19 +63,30 @@ div {
 }
 
 #projectionname {
-	text-anchor: end;
+  text-anchor: end;
   font-size: 20px;
   font-weight: bold;
 }
-    </style>
-  </head>
-  <body>
-    <h3>Composite Projection</h3>
-    <script type="text/javascript">
+
+table td:first-child {
+  width: 120px;
+  height: 26px;
+}
+
+table td:nth-child(2) {
+  width: 840px;
+}
+</style>
+</head>
+<body>
+<h3>Composite Projection</h3>
+<script type="text/javascript">
+
+var width = 960,
+    height = 500;
 
 // Our projection.
-var xy = d3.geo.composite([0,0, 960, 500]),
-//var xy = d3.geo.lambert_cylindrical(),
+var xy = d3.geo.composite([0, 0, width, height]),
     path = d3.geo.path().projection(xy);
 
 var svg = d3.select("body")
@@ -126,9 +133,9 @@ var graticules = svg.append("g");
 if (1)
 graticules
   .append("path")
-	  .datum(graticule)
-	  .attr("class", "graticule line")
-	  .attr("d", path);
+    .datum(graticule)
+    .attr("class", "graticule line")
+    .attr("d", path);
 
 if (0)
 graticules
@@ -142,21 +149,21 @@ var viewport = svg2g.append("rect")
   .attr("id", "viewport")
   .attr("x", 0)
   .attr("y", 0)
-  .attr("height", 500)
-  .attr("width", 960);
-
+  .attr("width", width)
+  .attr("height", height);
+  
 var graticules2 = svg2g.append("g");
 
 graticules2
   .append("path")
-	  .datum(graticule)
-	  .attr("class", "graticule line")
-	  .attr("d", path);
+    .datum(graticule)
+    .attr("class", "graticule line")
+    .attr("d", path);
 
 var projectionName = svg2.append("text")
     .attr("id", "projectionname")
     .text(xy.projectionName())
-    .attr("x", 960 - 20)
+    .attr("x", width - 20)
     .attr("y", 30)
     ;
 
@@ -177,17 +184,20 @@ function refresh() {
   states2.selectAll("path")
       .attr("d", path);
 
-  svg2g.attr("transform", "translate(480,250)" +
-    "scale(" + (1/xy.scale()) + ")" +
-    "translate(-480,-250)"
+  svg2g.attr("transform",
+    "translate(" + (width/2) + "," + (height/2) + ")" +
+    "scale(" + (1/xy.scale() * 0.6) + ")" +
+    "translate(" + (-width/2) + "," + (-height/2) + ")"
     );
   graticules2.selectAll("path")
     .attr("d", path)
-    .attr("stroke-width", xy.scale())
+    .attr("stroke-width", xy.scale() / 0.6)
     ;
-  viewport.attr("stroke-width", xy.scale()*1.4);
+  viewport.attr("stroke-width", xy.scale() / 0.6 * 1.4);
   projectionName.text(xy.projectionName());
 }
+
+refresh();
 
 var mouseState = 0;
 var map = document.getElementById("map");
@@ -218,8 +228,8 @@ document.addEventListener("mouseup", function(e) {
 var mousewheel = function (e) {
   var delta = e.wheelDelta ? e.wheelDelta : e.detail,
       scale = xy.scale() + delta / 1000;
-  if (scale < 0.05)
-    scale = 0.05;
+  if (scale < 0.1)
+    scale = 0.1;
   xy.scale(scale);
   refresh();
   e.preventDefault();
@@ -227,11 +237,24 @@ var mousewheel = function (e) {
 
 map.addEventListener(map.hasOwnProperty("onmousewheel") ?
   "mousewheel" : "DOMMouseScroll", mousewheel);
-    </script><p>
-    <div id="lon">origin.longitude: <span>0</span></div>
-    <div id="lat">origin.latitude: <span>0</span></div><p>
-    <div id="scale">scale: <span>1</span></div><p>
-    <script type="text/javascript">
+</script><br><br>
+
+<table cellpadding="0" cellspacing="0">
+  <tr>
+    <td>origin.longitude:</td>
+    <td><div id="lon"> <span>0</span></div></td>
+  </tr>
+  <tr>
+    <td>origin.latitude:</td>
+    <td><div id="lat"> <span>0</span></div></td>
+  </tr>
+  <tr>
+    <td>scale:</td>
+    <td><div id="scale"> <span>1</span></div></td>
+  </tr>
+</table>
+
+<script type="text/javascript">
 
 $("#lon").slider({
   min: -180,
@@ -260,7 +283,7 @@ $("#lat").slider({
 });
 
 $("#scale").slider({
-  min: 0,
+  min: 0.1,
   max: 17,
   step: 0.1,
   value: 1,
@@ -270,6 +293,6 @@ $("#scale").slider({
   }
 });
 
-    </script>
-  </body>
+</script>
+</body>
 </html>
