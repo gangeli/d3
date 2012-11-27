@@ -10,25 +10,65 @@ d3.geo.hammer = function(B) {
       scale  = 500.0,
       translate = [480, 250];
 
+  function rotate(forward, δλ, δφ, δγ) {
+    return δλ ? (δφ || δγ ? rotateλ(rotateφγ(forward, δφ, δγ), δλ)
+      : rotateλ(forward, δλ))
+      : (δφ || δγ ? rotateφγ(forward, δφ, δγ)
+      : forward);
+  }
+
+  function rotateλ(forward, δλ) {
+    return function(λ, φ) {
+      return forward(
+        (λ += δλ) > π ? λ - 2 * π : λ < -π ? λ + 2 * π : λ,
+        φ
+      );
+    };
+  }
+
+  function rotateLatitude(longitude, latitude, delta) {
+    var cosdelta = Math.cos(delta),
+        sindelta = Math.sin(delta),
+        clat = Math.cos(latitude),
+        x = Math.cos(longitude) * clat,
+        y = Math.sin(longitude) * clat,
+        z = Math.sin(latitude),
+        k = x * sindelta + z * cosdelta;
+    return [
+      Math.atan2(y, x * cosdelta - z * sindelta),
+      Math.asin(Math.max(-1, Math.min(1, k)))
+    ];
+  }
+
   function hammer(coordinates_degrees, return_wrap) {
-    // Core variables
+    // Adjust Lat/Lon
     var lon = coordinates_degrees[0] * d3_geo_radians - origin[0],
-        lat = coordinates_degrees[1] * d3_geo_radians - origin[1],
+        lat = coordinates_degrees[1] * d3_geo_radians,
+        have_wrapped_lon = false,
+        have_wrapped_lat = false;
+    while (lon < -Math.PI) {
+      lon += Math.PI * 2.0;
+      have_wrapped_lon = !have_wrapped_lon;
+    }
+    while (lon > Math.PI) {
+      lon -= Math.PI * 2.0;
+      have_wrapped_lon = !have_wrapped_lon;
+    }
+    var center = rotateLatitude(lon, lat, -origin[1]),
+        lon = center[0],
+        lat = center[1];
+//    while (lat < -Math.PI / 2.0 || lat > Math.PI / 2.0) {
+//      if (lat < -Math.PI / 2.0) lat = -Math.PI - lat;
+//      if (lat > Math.PI / 2.0)  lat = Math.PI - lat;
+//      have_wrapped_lat = !have_wrapped_lat;
+//    }
+    var have_wrapped = have_wrapped_lon ^ have_wrapped_lat;
+    // Projection
+    var sqrt2 = Math.sqrt(2),
         clon = Math.cos(lon),
         slon = Math.sin(lon),
         clat = Math.cos(lat),
         slat = Math.sin(lat);
-    var have_wrapped = false;
-    while (lon < -Math.PI) {
-      lon += Math.PI * 2.0;
-      have_wrapped = !have_wrapped;
-    }
-    while (lon > Math.PI) {
-      lon -= Math.PI * 2.0;
-      have_wrapped = !have_wrapped;
-    }
-    // Projection
-    var sqrt2 = Math.sqrt(2),
         sin_lon_over_b = Math.sin(lon / B),
         cos_lon_over_b = Math.cos(lon / B),
         nu = Math.sqrt(1 + clat * cos_lon_over_b),

@@ -6042,7 +6042,6 @@
     var albers_conic = function(origin, scale) {
       var origin_degrees = [ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ];
       var top_coord = [ viewport_center[0], viewport[1] ], bot_coord = [ viewport_center[0], viewport[3] ], top_latitude = impl.invert(top_coord)[1], bottom_latitude = impl.invert(bot_coord)[1], latitude_range = top_latitude - bottom_latitude;
-      console.log(top_latitude + ", " + bottom_latitude);
       return d3.geo.albers().scale(smaller_dimension).parallels([ bottom_latitude + 15 * latitude_range / 100, top_latitude - 15 * latitude_range / 100 ]).scale(scale * smaller_dimension * .5).origin([ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ]);
     }, hammer = function(B, origin, scale) {
       return d3.geo.hammer(B).scale(scale * smaller_dimension).origin([ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ]);
@@ -6052,36 +6051,37 @@
       return d3.geo.lambert_cylindrical().scale(scale * smaller_dimension).origin([ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ]);
     }, mercator = function(origin, scale) {
       return d3.geo.mercator();
-    }, select_impl = function(origin, scale) {
+    }, impl_name = "", select_impl = function(origin, scale) {
       if (scale <= 1.5) {
-        console.log("hammer");
+        impl_name = "Hammer";
         return hammer(2, origin, scale);
       } else if (scale <= 2) {
-        console.log("modified hammer");
+        impl_name = "Modified Hammer";
         return hammer(2 - (scale - 1.5) * 2, origin, scale);
       } else if (scale <= 4) {
-        console.log("lambert azimuthal");
+        impl_name = "Lambert azimuthal";
         return lambert_azimuthal(origin, scale);
       } else if (scale <= 6 && Math.abs(origin[1]) < Math.PI / 12) {
         if (Math.abs(origin[1]) < (scale - 4) * Math.PI / 6) {
-          console.log("lambert cylindrical");
+          impl_name = "Lambert cylindrical";
           return lambert_cylindrical(origin, scale);
         } else {
-          console.log("albers conic");
+          impl_name = "Albers conic";
           return albers_conic(origin, scale);
         }
       } else if (scale <= 13) {
         if (Math.abs(origin[1]) <= Math.PI / 12) {
-          console.log("lambert cylindrical");
+          impl_name = "Lambert cylindrical";
           return lambert_cylindrical(origin, scale);
         } else if (Math.abs(origin[1]) >= 5 * Math.PI / 12) {
-          console.log("lambert azimuthal");
+          impl_name = "Lambert azimuthal";
           return lambert_azimuthal(origin, scale);
         } else {
-          console.log("albers conic");
+          impl_name = "Albers conic";
           return albers_conic(origin, scale);
         }
       } else {
+        impl_name = "Mercator";
         console.log("Mercator not implemented yet!");
       }
     }, impl = select_impl(origin, scale);
@@ -6093,6 +6093,10 @@
         return [ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ];
       }
       origin = [ origin_degrees[0] * d3_geo_radians, origin_degrees[1] * d3_geo_radians ];
+      while (origin[0] < -Math.PI) origin[0] += Math.PI * 2;
+      while (origin[0] > Math.PI) origin[0] -= Math.PI * 2;
+      while (origin[1] < -Math.PI / 2) origin[1] += Math.PI;
+      while (origin[1] > Math.PI / 2) origin[1] -= Math.PI;
       impl = select_impl(origin, scale);
       return composite;
     };
@@ -6101,6 +6105,9 @@
       scale = +x;
       impl = select_impl(origin, scale);
       return composite;
+    };
+    composite.projectionName = function() {
+      return impl_name;
     };
     return composite;
   };
@@ -6126,19 +6133,34 @@
     };
     return equirectangular;
   };
+  var d3_geo_radians = Math.PI / 180;
   d3.geo.hammer = function(B) {
+    function rotate(forward, δλ, δφ, δγ) {
+      return δλ ? δφ || δγ ? rotateλ(rotateφγ(forward, δφ, δγ), δλ) : rotateλ(forward, δλ) : δφ || δγ ? rotateφγ(forward, δφ, δγ) : forward;
+    }
+    function rotateλ(forward, δλ) {
+      return function(λ, φ) {
+        return forward((λ += δλ) > π ? λ - 2 * π : λ < -π ? λ + 2 * π : λ, φ);
+      };
+    }
+    function rotateLatitude(longitude, latitude, delta) {
+      var cosdelta = Math.cos(delta), sindelta = Math.sin(delta), clat = Math.cos(latitude), x = Math.cos(longitude) * clat, y = Math.sin(longitude) * clat, z = Math.sin(latitude), k = x * sindelta + z * cosdelta;
+      return [ Math.atan2(y, x * cosdelta - z * sindelta), Math.asin(Math.max(-1, Math.min(1, k))) ];
+    }
     function hammer(coordinates_degrees, return_wrap) {
-      var lon = coordinates_degrees[0] * d3_geo_radians - origin[0], lat = coordinates_degrees[1] * d3_geo_radians, clon = Math.cos(lon), slon = Math.sin(lon), clat = Math.cos(lat), slat = Math.sin(lat);
-      var have_wrapped = false;
+      var lon = coordinates_degrees[0] * d3_geo_radians - origin[0], lat = coordinates_degrees[1] * d3_geo_radians, have_wrapped_lon = false, have_wrapped_lat = false;
       while (lon < -Math.PI) {
         lon += Math.PI * 2;
-        have_wrapped = !have_wrapped;
+        have_wrapped_lon = !have_wrapped_lon;
       }
       while (lon > Math.PI) {
         lon -= Math.PI * 2;
-        have_wrapped = !have_wrapped;
+        have_wrapped_lon = !have_wrapped_lon;
       }
-      var sqrt2 = Math.sqrt(2), sin_lon_over_b = Math.sin(lon / B), cos_lon_over_b = Math.cos(lon / B), nu = Math.sqrt(1 + clat * cos_lon_over_b), x = B * sqrt2 * clat * sin_lon_over_b / nu, y = -sqrt2 * slat / nu;
+      lat = rotateLatitude(lon, lat, origin[1]);
+      var have_wrapped = have_wrapped_lon ^ have_wrapped_lat;
+      var sqrt2 = Math.sqrt(2), clon = Math.cos(lon), slon = Math.sin(lon), clat = Math.cos(lat), slat = Math.sin(lat);
+      sin_lon_over_b = Math.sin(lon / B), cos_lon_over_b = Math.cos(lon / B), nu = Math.sqrt(1 + clat * cos_lon_over_b), x = B * sqrt2 * clat * sin_lon_over_b / nu, y = -sqrt2 * slat / nu;
       if (return_wrap) {
         return [ scale * .5 * x + translate[0], scale * .5 * y + translate[1], have_wrapped ];
       } else {
@@ -6207,7 +6229,7 @@
     }
     var scale = 500, translate = [ 480, 250 ];
     lambert_cylindrical.invert = function(coordinates) {
-      var x = coordinates[0], y = coordinates[1], lon_radians = x - translate[0] * Math.PI / scale, lat_radians = Math.asin(-(y - translate[1] * 2 / scale)), lon = lon_radians / d3_geo_radians, lat = lat_radians / d3_geo_radians;
+      var x = coordinates[0], y = coordinates[1], lon_radians = (x + translate[0]) * 2 / scale, lat_radians = Math.asin(-((y + translate[1]) * 2 / scale)), lon = lon_radians / d3_geo_radians, lat = lat_radians / d3_geo_radians;
       return [ lon, lat ];
     };
     lambert_cylindrical.scale = function(x) {
@@ -6302,15 +6324,13 @@
         while (++i < n) buffer.push("M", project(coordinates[i])[0], pointCircle);
       },
       LineString: function(o) {
-        var coordinates = o.coordinates, i = -1, n = coordinates.length;
-        buffer.push("M");
-        last_point_wrapped = false;
+        var coordinates = o.coordinates, i = -1, n = coordinates.length, last_point_wrapped;
         while (++i < n) {
           var projected = project(coordinates[i]);
-          buffer.push(projected[0], projected[1] == last_point_wrapped ? "L" : "M");
+          if (isNaN(projected[0][1])) continue;
+          buffer.push(projected[1] == last_point_wrapped && i > 0 ? "L" : "M", projected[0]);
           last_point_wrapped = projected[1];
         }
-        buffer.pop();
       },
       MultiLineString: function(o) {
         var coordinates = o.coordinates, i = -1, n = coordinates.length, subcoordinates, j, m;

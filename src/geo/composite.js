@@ -25,7 +25,6 @@ d3.geo.composite = function(viewport) {
              top_latitude = impl.invert(top_coord)[1],
              bottom_latitude = impl.invert(bot_coord)[1],
              latitude_range = top_latitude - bottom_latitude;
-         //console.log(top_latitude + ", " + bottom_latitude);
          return d3.geo.albers().scale(smaller_dimension)
            .parallels([
              (bottom_latitude + 15.0 * latitude_range / 100.0),
@@ -57,38 +56,30 @@ d3.geo.composite = function(viewport) {
      select_impl = function(origin, scale) {
          if (scale <= 1.5) {
            impl_name = "Hammer";
-           console.log("hammer");
            return hammer(2.0, origin, scale);
          } else if (scale <= 2.0) {
            impl_name = "Modified Hammer";
-           console.log("modified hammer");
            return hammer(2.0 - (scale-1.5) * 2.0, origin, scale);
          } else if (scale <= 4.0) {
            impl_name = "Lambert azimuthal";
-           console.log("lambert azimuthal");
            return lambert_azimuthal(origin, scale);
          } else if (scale <= 6.0 && Math.abs(origin[1]) < Math.PI / 12) {
            if (Math.abs(origin[1]) < (scale - 4.0) * Math.PI / 6) {
              impl_name = "Lambert cylindrical";
-             console.log("lambert cylindrical");
              return lambert_cylindrical(origin, scale);
            } else {
              impl_name = "Albers conic";
-             console.log("albers conic");
              return albers_conic(origin, scale);
            }
          } else if (scale <= 13) {
            if (Math.abs(origin[1]) <= Math.PI / 12) {
              impl_name = "Lambert cylindrical";
-             console.log("lambert cylindrical");
              return lambert_cylindrical(origin, scale);
            } else if (Math.abs(origin[1]) >= 5.0 * Math.PI / 12) {
              impl_name = "Lambert azimuthal";
-             console.log("lambert azimuthal");
              return lambert_azimuthal(origin, scale);
            } else {
              impl_name = "Albers conic";
-             console.log("albers conic");
              return albers_conic(origin, scale);
            }
          } else {
@@ -118,6 +109,10 @@ d3.geo.composite = function(viewport) {
       origin_degrees[0] * d3_geo_radians,
       origin_degrees[1] * d3_geo_radians
     ];
+    while (origin[0] < -Math.PI) origin[0] += Math.PI * 2.0;
+    while (origin[0] > Math.PI) origin[0] -= Math.PI * 2.0;
+    while (origin[1] < -Math.PI) origin[1] += Math.PI * 2.0;
+    while (origin[1] > Math.PI) origin[1] -= Math.PI * 2.0;
     impl = select_impl(origin, scale);
     return composite;
   };
