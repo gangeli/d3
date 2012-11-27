@@ -6142,7 +6142,7 @@
       var sqrt2 = Math.sqrt(2), sin_lon_over_b = Math.sin(lon / B), cos_lon_over_b = Math.cos(lon / B), nu = Math.sqrt(1 + clat * cos_lon_over_b);
       x = B * sqrt2 * clat * sin_lon_over_b / nu, y = -sqrt2 * slat / nu;
       if (return_wrap) {
-        return [ scale * 1.5 * x + translate[0], scale * 1.5 * y + translate[1], have_wrapped ];
+        return [ scale * .375 * x + translate[0], scale * .375 * y + translate[1], have_wrapped ];
       } else {
         return [ scale * 1.5 * x + translate[0], scale * 1.5 * y + translate[1] ];
       }
