@@ -4,7 +4,11 @@
     <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
     <title>Composite Projection</title>
     <script type="text/javascript" src="../../d3.v2.js"></script>
+    <script type="text/javascript" src="projection.js"></script>
     <script type="text/javascript" src="../../src/geo/composite.js"></script>
+    <script type="text/javascript" src="../../src/geo/hammer.js"></script>
+    <script type="text/javascript" src="../../src/geo/type.js"></script>
+    <script type="text/javascript" src="../../src/geo/path.js"></script>
     <script type="text/javascript" src="../../lib/jquery/jquery.min.js"></script>
     <script type="text/javascript" src="../../lib/jquery-ui/jquery-ui.min.js"></script>
     <style type="text/css">
@@ -32,10 +36,29 @@ svg {
   stroke: #000;
 }
 
+.graticule {
+  fill: none;
+  stroke: #000;
+}
+
+.graticule.outline {
+  stroke-width: 2px;
+}
+
 div {
   width: 960px;
 }
 
+
+#states2 path {
+  fill: #ccc;
+  stroke: #fff;
+}
+
+#states2 circle {
+  fill: #fcc;
+  stroke: #000;
+}
     </style>
   </head>
   <body>
@@ -47,29 +70,94 @@ var xy = d3.geo.composite([0,0, 960, 500]),
 //var xy = d3.geo.lambert_cylindrical(),
     path = d3.geo.path().projection(xy);
 
-d3.select("body")
+var xy2 = d3.geo.composite([0,0, 960, 500]),
+    path2 = d3.geo.path().projection(xy2);
+
+var svg = d3.select("body")
   .append("svg")
     .attr("id", "map")
+    .style("position", "relative");
+
+var svg2 = d3.select("body")
+  .append("svg")
+    .attr("id", "map2")
     .style("position", "relative")
-  .append("g")
+   .append("g");
+
+var states = svg.append("g")
     .attr("id", "states");
 
+var states2 = svg2.append("g")
+    .attr("id", "states2");
+
 d3.json("../data/world-countries.json", function(collection) {
-  d3.select("#states")
+  states
     .selectAll("path")
       .data(collection.features)
     .enter().append("path")
       .attr("d", path);
-  d3.select("#states")
+  states
     .append("circle")
       .attr("r", 10)
-      .attr("transform", "translate(" + xy(xy.origin()).join(",") + ")")
+      .attr("transform", "translate(" + xy(xy.origin()).join(",") + ")");
+
+  states2
+    .selectAll("path")
+      .data(collection.features)
+    .enter().append("path")
+      .attr("d", path);
 });
 
+var graticule = d3.geo.graticule()
+  .step([20, 20]);
+
+var graticules = svg.append("g");
+
+if (1)
+graticules
+  .append("path")
+	  .datum(graticule)
+	  .attr("class", "graticule line")
+	  .attr("d", path);
+
+if (0)
+graticules
+  .append("path")
+    .datum(graticule.outline)
+    .attr("class", "graticule outline")
+    .attr("d", path);
+
+
+
+
+
+var graticules2 = svg2.append("g");
+
+if (1)
+graticules2
+  .append("path")
+	  .datum(graticule)
+	  .attr("class", "graticule line")
+	  .attr("d", path2);
+
+if (0)
+graticules
+  .append("path")
+    .datum(graticule.outline)
+    .attr("class", "graticule outline")
+    .attr("d", path);
+
+
+
+
+
+
 function refresh() {
-  d3.selectAll("#states path")
+  states.selectAll("path")
       .attr("d", path);
-  d3.select("#states circle")
+  graticules.selectAll("path")
+      .attr("d", path);
+  states.select("circle")
       .attr("transform", "translate(" + xy(xy.origin()).join(",") + ")")
   d3.select("#lon span")
       .text(xy.origin()[0]);
@@ -77,6 +165,11 @@ function refresh() {
       .text(xy.origin()[1]);
   d3.select("#scale span")
       .text(xy.scale());
+  states2.selectAll("path")
+      .attr("d", path2);
+
+  svg2.attr("transform", "translate(480,250)scale(" + (1/xy.scale()) + ")translate(-480,-250)");
+  graticules2.selectAll("path").attr("d", path2);
 }
 
 var mouseState = 0;
@@ -107,6 +200,7 @@ document.addEventListener("mouseup", function(e) {
 
 map.addEventListener("mousewheel", function(e) {
   xy.scale(xy.scale() + e.wheelDelta / 1000);
+  xy2.scale(xy.scale());
   refresh();
   e.preventDefault();
 });
@@ -149,6 +243,7 @@ $("#scale").slider({
   value: 1,
   slide: function(event, ui) {
     xy.scale(ui.value);
+    xy2.scale(ui.value);
     refresh();
   }
 });

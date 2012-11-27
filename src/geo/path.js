@@ -54,6 +54,21 @@ d3.geo.path = function() {
     },
 
     LineString: function(o) {
+      function draw(coordinates) {
+        if (coordinates.length <= 1)
+          return;
+        var i = -1, // coordinates.index
+            n = coordinates.length;
+        buffer.push("M");
+        while (++i < n) buffer.push(coordinates[i][0], "L");
+        buffer.pop();
+      }
+
+      var projectedCoordinates = o.coordinates.map(project);
+      draw(projectedCoordinates.filter(function(c) { return !c[1]; }));
+      draw(projectedCoordinates.filter(function(c) { return c[1]; }));
+      
+      /*
       var coordinates = o.coordinates,
           i = -1, // coordinates.index
           n = coordinates.length;
@@ -62,9 +77,11 @@ d3.geo.path = function() {
       while (++i < n) {
         var projected = project(coordinates[i])
         buffer.push(projected[0], projected[1] == last_point_wrapped ? "L" : "M");
+        //buffer.push(projected[0],"L");
         last_point_wrapped = projected[1]
       }
       buffer.pop();
+      */
     },
 
     MultiLineString: function(o) {
