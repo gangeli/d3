@@ -49,6 +49,8 @@ var xy = d3.geo.composite([0,0, 960, 500]),
 
 d3.select("body")
   .append("svg")
+    .attr("id", "map")
+    .style("position", "relative")
   .append("g")
     .attr("id", "states");
 
@@ -77,6 +79,37 @@ function refresh() {
       .text(xy.scale());
 }
 
+var mouseState = 0;
+var map = document.getElementById("map");
+var prevCoordinates;
+map.addEventListener("mousedown", function(e) {
+  mouseState = 1;
+  prevCoordinates = [e.layerX, e.layerY];
+});
+
+map.addEventListener("mousemove", function(e) {
+  if (mouseState == 1) {
+    var coordinates = [e.layerX, e.layerY];
+    var prevD = xy.invert(prevCoordinates);
+    var D = xy.invert(coordinates);
+    var origin = xy.origin();    
+    origin[0] += prevD[0] - D[0];
+    origin[1] += prevD[1] - D[1];
+    xy.origin(origin);
+    refresh();
+    prevCoordinates = coordinates;
+  }
+});
+
+document.addEventListener("mouseup", function(e) {
+  mouseState = 0;
+});
+
+map.addEventListener("mousewheel", function(e) {
+  xy.scale(xy.scale() + e.wheelDelta / 1000);
+  refresh();
+  e.preventDefault();
+});
     </script><p>
     <div id="lon">origin.longitude: <span>0</span></div>
     <div id="lat">origin.latitude: <span>0</span></div><p>
