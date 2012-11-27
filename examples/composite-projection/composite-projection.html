@@ -7,6 +7,7 @@
     <script type="text/javascript" src="projection.js"></script>
     <script type="text/javascript" src="../../src/geo/composite.js"></script>
     <script type="text/javascript" src="../../src/geo/hammer.js"></script>
+    <script type="text/javascript" src="../../src/geo/lambert.js"></script>
     <script type="text/javascript" src="../../src/geo/type.js"></script>
     <script type="text/javascript" src="../../src/geo/path.js"></script>
     <script type="text/javascript" src="../../lib/jquery/jquery.min.js"></script>
@@ -22,12 +23,12 @@ body, .ui-widget {
 svg {
   width: 960px;
   height: 500px;
-  border: solid 1px #ccc;
+  border: solid 1px #000;
   background: #eee;
 }
 
 #states path {
-  fill: #ccc;
+  fill: #888;
   stroke: #fff;
 }
 
@@ -38,7 +39,7 @@ svg {
 
 .graticule {
   fill: none;
-  stroke: #000;
+  stroke: #333;
 }
 
 .graticule.outline {
@@ -51,13 +52,24 @@ div {
 
 
 #states2 path {
-  fill: #ccc;
+  fill: #888;
   stroke: #fff;
 }
 
 #states2 circle {
   fill: #fcc;
   stroke: #000;
+}
+
+#viewport {
+  fill: none;
+  stroke: #000;
+}
+
+#projectionname {
+	text-anchor: end;
+  font-size: 20px;
+  font-weight: bold;
 }
     </style>
   </head>
@@ -70,24 +82,22 @@ var xy = d3.geo.composite([0,0, 960, 500]),
 //var xy = d3.geo.lambert_cylindrical(),
     path = d3.geo.path().projection(xy);
 
-var xy2 = d3.geo.composite([0,0, 960, 500]),
-    path2 = d3.geo.path().projection(xy2);
-
 var svg = d3.select("body")
   .append("svg")
     .attr("id", "map")
     .style("position", "relative");
 
-var svg2 = d3.select("body")
-  .append("svg")
-    .attr("id", "map2")
-    .style("position", "relative")
-   .append("g");
-
 var states = svg.append("g")
     .attr("id", "states");
 
-var states2 = svg2.append("g")
+var svg2 = d3.select("body")
+  .append("svg")
+    .attr("id", "map2")
+    .style("position", "relative");
+
+var svg2g = svg2.append("g");
+
+var states2 = svg2g.append("g")
     .attr("id", "states2");
 
 d3.json("../data/world-countries.json", function(collection) {
@@ -128,28 +138,27 @@ graticules
     .attr("d", path);
 
 
+var viewport = svg2g.append("rect")
+  .attr("id", "viewport")
+  .attr("x", 0)
+  .attr("y", 0)
+  .attr("height", 500)
+  .attr("width", 960);
 
+var graticules2 = svg2g.append("g");
 
-
-var graticules2 = svg2.append("g");
-
-if (1)
 graticules2
   .append("path")
 	  .datum(graticule)
 	  .attr("class", "graticule line")
-	  .attr("d", path2);
+	  .attr("d", path);
 
-if (0)
-graticules
-  .append("path")
-    .datum(graticule.outline)
-    .attr("class", "graticule outline")
-    .attr("d", path);
-
-
-
-
+var projectionName = svg2.append("text")
+    .attr("id", "projectionname")
+    .text(xy.projectionName())
+    .attr("x", 960 - 20)
+    .attr("y", 30)
+    ;
 
 
 function refresh() {
@@ -166,15 +175,18 @@ function refresh() {
   d3.select("#scale span")
       .text(xy.scale());
   states2.selectAll("path")
-      .attr("d", path2);
+      .attr("d", path);
 
-  svg2.attr("transform", "translate(480,250)" +
-  
-    "scale(" + (1/xy2.scale()) + ")" +
-    //"translate(" + (xy2.origin()[0]) + "," + (xy2.origin()[1]) + ")" +
+  svg2g.attr("transform", "translate(480,250)" +
+    "scale(" + (1/xy.scale()) + ")" +
     "translate(-480,-250)"
     );
-  graticules2.selectAll("path").attr("d", path2);
+  graticules2.selectAll("path")
+    .attr("d", path)
+    .attr("stroke-width", xy.scale())
+    ;
+  viewport.attr("stroke-width", xy.scale()*1.4);
+  projectionName.text(xy.projectionName());
 }
 
 var mouseState = 0;
@@ -194,7 +206,6 @@ map.addEventListener("mousemove", function(e) {
     origin[0] += prevD[0] - D[0];
     origin[1] += prevD[1] - D[1];
     xy.origin(origin);
-    xy2.origin(origin);
     refresh();
     prevCoordinates = coordinates;
   }
@@ -205,8 +216,10 @@ document.addEventListener("mouseup", function(e) {
 });
 
 map.addEventListener("mousewheel", function(e) {
-  xy.scale(xy.scale() + e.wheelDelta / 1000);
-  xy2.scale(xy.scale());
+  var scale = xy.scale() + e.wheelDelta / 1000;
+  if (scale < 0.05)
+    scale = 0.05;
+  xy.scale(scale);
   refresh();
   e.preventDefault();
 });
@@ -249,7 +262,6 @@ $("#scale").slider({
   value: 1,
   slide: function(event, ui) {
     xy.scale(ui.value);
-    xy2.scale(ui.value);
     refresh();
   }
 });
