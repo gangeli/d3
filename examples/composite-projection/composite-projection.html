@@ -168,7 +168,12 @@ function refresh() {
   states2.selectAll("path")
       .attr("d", path2);
 
-  svg2.attr("transform", "translate(480,250)scale(" + (1/xy.scale()) + ")translate(-480,-250)");
+  svg2.attr("transform", "translate(480,250)" +
+  
+    "scale(" + (1/xy2.scale()) + ")" +
+    //"translate(" + (xy2.origin()[0]) + "," + (xy2.origin()[1]) + ")" +
+    "translate(-480,-250)"
+    );
   graticules2.selectAll("path").attr("d", path2);
 }
 
@@ -189,6 +194,7 @@ map.addEventListener("mousemove", function(e) {
     origin[0] += prevD[0] - D[0];
     origin[1] += prevD[1] - D[1];
     xy.origin(origin);
+    xy2.origin(origin);
     refresh();
     prevCoordinates = coordinates;
   }
