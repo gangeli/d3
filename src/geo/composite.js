@@ -20,13 +20,18 @@ d3.geo.composite = function(viewport) {
              origin[0] / d3_geo_radians,
              origin[1] / d3_geo_radians
            ];
-         var top_latitude    = origin[1] + Math.sin( 1.0 / (4.0 * scale) );
-         var bottom_latitude = origin[1] - Math.sin( 1.0 / (4.0 * scale) );
-         var latitude_range = top_latitude - bottom_latitude;
+         var top_coord = [viewport_center[0], viewport[1]],
+             bot_coord = [viewport_center[0], viewport[3]],
+             top_latitude = impl.invert(top_coord)[1],
+             bottom_latitude = impl.invert(bot_coord)[1],
+             latitude_range = top_latitude - bottom_latitude;
+         console.log(top_latitude + ", " + bottom_latitude);
          return d3.geo.albers().scale(smaller_dimension)
-          .parallels([
-            (bottom_latitude + 15.0 * latitude_range / 100.0) / d3_geo_radians,
-            (top_latitude - 15.0 * latitude_range / 100.0) / d3_geo_radians]);
+           .parallels([
+             (bottom_latitude + 15.0 * latitude_range / 100.0),
+             (top_latitude - 15.0 * latitude_range / 100.0)])
+           .scale(scale * smaller_dimension * 0.5)
+           .origin([origin[0] / d3_geo_radians, origin[1] / d3_geo_radians]);
        },
      hammer = function(B, origin, scale) {
          return d3.geo.hammer(B)
@@ -39,9 +44,9 @@ d3.geo.composite = function(viewport) {
            .origin([origin[0] / d3_geo_radians, origin[1] / d3_geo_radians]);
        },
      lambert_cylindrical = function(origin, scale) {
-         // TODO(gangeli)
          return d3.geo.lambert_cylindrical()
            .scale(scale * smaller_dimension)
+           .origin([origin[0] / d3_geo_radians, origin[1] / d3_geo_radians]);
        },
      mercator = function(origin, scale) {
          // TODO(gangeli)

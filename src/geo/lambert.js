@@ -5,8 +5,7 @@
 d3.geo.lambert_azimuthal   = function() { return d3.geo.hammer(1.0); }
 
 d3.geo.lambert_cylindrical = function() {
-  var origin,
-      scale  = 500.0,
+  var scale  = 500.0,
       translate = [480, 250];
 
   function lambert_cylindrical(coordinates_degrees) {
@@ -15,8 +14,8 @@ d3.geo.lambert_cylindrical = function() {
         slat = Math.sin(lat),
         x_unnormalized = lon,
         y_unnormalized = -slat;
-    return [x_unnormalized * scale / 2.0 + translate[0],
-            y_unnormalized * scale / 2.0+ translate[1]];
+    return [x_unnormalized * scale / 2.0 - translate[0],
+            y_unnormalized * scale / 2.0 - translate[1]];
   }
 
   lambert_cylindrical.invert = function(coordinates) {
@@ -38,6 +37,12 @@ d3.geo.lambert_cylindrical = function() {
   lambert_cylindrical.translate = function(x) {
     if (!arguments.length) return translate;
     translate = [+x[0], +x[1]];
+    return lambert_cylindrical;
+  };
+  
+  lambert_cylindrical.origin = function(origin_degrees) {
+    if (!arguments.length) return lambert_cylindrical.invert(translate);
+    translate = lambert_cylindrical(origin_degrees);
     return lambert_cylindrical;
   };
 

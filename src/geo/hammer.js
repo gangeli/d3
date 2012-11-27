@@ -9,6 +9,7 @@ d3.geo.hammer = function(B) {
       translate = [480, 250];
 
   function hammer(coordinates_degrees, return_wrap) {
+    // Core variables
     var lon = coordinates_degrees[0] * d3_geo_radians - origin[0],
         lat = coordinates_degrees[1] * d3_geo_radians - origin[1],
         clon = Math.cos(lon),
@@ -16,13 +17,15 @@ d3.geo.hammer = function(B) {
         clat = Math.cos(lat),
         slat = Math.sin(lat);
     var have_wrapped = false;
-    if (lon < -Math.PI) {
+    while (lon < -Math.PI) {
       lon += Math.PI * 2.0;
-      have_wrapped = true;
-    } else if (lon > Math.PI) {
-      lon -= Math.PI * 2.0;
-      have_wrapped = true;
+      have_wrapped = !have_wrapped;
     }
+    while (lon > Math.PI) {
+      lon -= Math.PI * 2.0;
+      have_wrapped = !have_wrapped;
+    }
+    // Projection
     var sqrt2 = Math.sqrt(2),
         sin_lon_over_b = Math.sin(lon / B),
         cos_lon_over_b = Math.cos(lon / B),
