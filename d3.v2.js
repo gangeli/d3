@@ -6142,7 +6142,7 @@
       var sqrt2 = Math.sqrt(2), sin_lon_over_b = Math.sin(lon / B), cos_lon_over_b = Math.cos(lon / B), nu = Math.sqrt(1 + clat * cos_lon_over_b);
       x = B * sqrt2 * clat * sin_lon_over_b / nu, y = -sqrt2 * slat / nu;
       if (return_wrap) {
-        return [ scale * .375 * x + translate[0], scale * .375 * y + translate[1], have_wrapped ];
+        return [ scale * .5 * x + translate[0], scale * .5 * y + translate[1], have_wrapped ];
       } else {
         return [ scale * 1.5 * x + translate[0], scale * 1.5 * y + translate[1] ];
       }
@@ -6178,7 +6178,7 @@
   d3.geo.lambert_cylindrical = function() {
     function lambert_cylindrical(coordinates_degrees) {
       var lon = coordinates_degrees[0] * d3_geo_radians, lat = coordinates_degrees[1] * d3_geo_radians, slat = Math.sin(lat), x_unnormalized = lon, y_unnormalized = -slat;
-      return [ x_unnormalized * 2 * scale / Math.PI + translate[0], y_unnormalized * scale / 2 + translate[1] ];
+      return [ x_unnormalized * scale / 2 + translate[0], y_unnormalized * scale / 2 + translate[1] ];
     }
     var origin, scale = 500, translate = [ 480, 250 ];
     lambert_cylindrical.invert = function(coordinates) {

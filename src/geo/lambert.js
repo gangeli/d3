@@ -15,8 +15,8 @@ d3.geo.lambert_cylindrical = function() {
         slat = Math.sin(lat),
         x_unnormalized = lon,
         y_unnormalized = -slat;
-    return [x_unnormalized * 2.0 * scale / Math.PI + translate[0],
-            y_unnormalized * scale / 2.0 + translate[1]];
+    return [x_unnormalized * scale / 2.0 + translate[0],
+            y_unnormalized * scale / 2.0+ translate[1]];
   }
 
   lambert_cylindrical.invert = function(coordinates) {

@@ -32,8 +32,8 @@ d3.geo.hammer = function(B) {
         y = - sqrt2 * slat / nu;
     if( return_wrap ) {
       return [
-        scale * 0.375 * x + translate[0],
-        scale * 0.375 * y + translate[1],
+        scale * 0.5 * x + translate[0],
+        scale * 0.5 * y + translate[1],
         have_wrapped
       ];
     } else {
