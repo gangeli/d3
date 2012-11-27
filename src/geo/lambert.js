@@ -21,8 +21,8 @@ d3.geo.lambert_cylindrical = function() {
   lambert_cylindrical.invert = function(coordinates) {
     var x = coordinates[0],
         y = coordinates[1],
-        lon_radians = x - translate[0] * Math.PI / scale,
-        lat_radians = Math.asin(-(y - translate[1] * 2.0 / scale)),
+        lon_radians = (x + translate[0]) * 2 / scale,
+        lat_radians = Math.asin(-((y + translate[1]) * 2.0 / scale)),
         lon = lon_radians / d3_geo_radians,
         lat = lat_radians / d3_geo_radians;
     return [lon, lat];
