@@ -2,6 +2,8 @@
 //
 // Implemented by Sukolsak Sakshuwong and Gabor Angeli
 
+var d3_geo_radians = Math.PI / 180;
+
 d3.geo.hammer = function(B) {
   if (B == undefined) B = 2.0;
   var origin,
