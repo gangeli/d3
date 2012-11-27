@@ -25,12 +25,12 @@ d3.geo.composite = function(viewport) {
              top_latitude = impl.invert(top_coord)[1],
              bottom_latitude = impl.invert(bot_coord)[1],
              latitude_range = top_latitude - bottom_latitude;
-         return d3.geo.albers().scale(smaller_dimension)
+         return d3.geo.albers()
            .parallels([
-             (bottom_latitude + 15.0 * latitude_range / 100.0),
-             (top_latitude - 15.0 * latitude_range / 100.0)])
+             (bottom_latitude + 15 * latitude_range / 100.0),
+             (top_latitude - 15 * latitude_range / 100.0)])
+           .origin(origin_degrees)
            .scale(scale * smaller_dimension * 0.5)
-           .origin([origin[0] / d3_geo_radians, origin[1] / d3_geo_radians]);
        },
      hammer = function(B, origin, scale) {
          return d3.geo.hammer(B)

@@ -44,25 +44,18 @@ d3.geo.hammer = function(B) {
     // Adjust Lat/Lon
     var lon = coordinates_degrees[0] * d3_geo_radians - origin[0],
         lat = coordinates_degrees[1] * d3_geo_radians,
-        have_wrapped_lon = false,
-        have_wrapped_lat = false;
+        have_wrapped = false;
     while (lon < -Math.PI) {
       lon += Math.PI * 2.0;
-      have_wrapped_lon = !have_wrapped_lon;
+      have_wrapped = !have_wrapped;
     }
     while (lon > Math.PI) {
       lon -= Math.PI * 2.0;
-      have_wrapped_lon = !have_wrapped_lon;
+      have_wrapped = !have_wrapped;
     }
     var center = rotateLatitude(lon, lat, -origin[1]),
         lon = center[0],
         lat = center[1];
-//    while (lat < -Math.PI / 2.0 || lat > Math.PI / 2.0) {
-//      if (lat < -Math.PI / 2.0) lat = -Math.PI - lat;
-//      if (lat > Math.PI / 2.0)  lat = Math.PI - lat;
-//      have_wrapped_lat = !have_wrapped_lat;
-//    }
-    var have_wrapped = have_wrapped_lon ^ have_wrapped_lat;
     // Projection
     var sqrt2 = Math.sqrt(2),
         clon = Math.cos(lon),
