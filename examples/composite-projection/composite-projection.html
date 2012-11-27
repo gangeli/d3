@@ -215,14 +215,18 @@ document.addEventListener("mouseup", function(e) {
   mouseState = 0;
 });
 
-map.addEventListener("mousewheel", function(e) {
-  var scale = xy.scale() + e.wheelDelta / 1000;
+var mousewheel = function (e) {
+  var delta = e.wheelDelta ? e.wheelDelta : e.detail,
+      scale = xy.scale() + delta / 1000;
   if (scale < 0.05)
     scale = 0.05;
   xy.scale(scale);
   refresh();
   e.preventDefault();
-});
+};
+
+map.addEventListener(map.hasOwnProperty("onmousewheel") ?
+  "mousewheel" : "DOMMouseScroll", mousewheel);
     </script><p>
     <div id="lon">origin.longitude: <span>0</span></div>
     <div id="lat">origin.latitude: <span>0</span></div><p>
