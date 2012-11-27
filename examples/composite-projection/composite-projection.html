@@ -44,6 +44,7 @@ div {
 
 // Our projection.
 var xy = d3.geo.composite([0,0, 960, 500]),
+//var xy = d3.geo.lambert_cylindrical(),
     path = d3.geo.path().projection(xy);
 
 d3.select("body")

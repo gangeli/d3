@@ -189,6 +189,8 @@ d3.geo.js: \
 	src/geo/bonne.js \
 	src/geo/composite.js \
 	src/geo/equirectangular.js \
+	src/geo/hammer.js \
+	src/geo/lambert.js \
 	src/geo/mercator.js \
 	src/geo/type.js \
 	src/geo/path.js \

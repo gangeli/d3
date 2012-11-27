@@ -6036,64 +6036,74 @@
   var d3_geo_radians = Math.PI / 180;
   d3.geo.composite = function(viewport) {
     function composite(coordinates_degrees, return_wrap) {
-      function generalized_hammer(B) {
-        var sqrt2 = Math.sqrt(2), sin_lon_over_b = Math.sin(lon / B), cos_lon_over_b = Math.cos(lon / B), nu = 4 * Math.sqrt(1 + clat * cos_lon_over_b);
-        x = B * sqrt2 * clat * sin_lon_over_b / nu, y = -sqrt2 * slat / nu;
-        if (return_wrap) {
-          return [ scale * smaller_dimension * x + viewport_center[0], scale * smaller_dimension * y + viewport_center[1], have_wrapped ];
-        } else {
-          return [ scale * smaller_dimension * x + viewport_center[0], scale * smaller_dimension * y + viewport_center[1] ];
-        }
-      }
-      var lon = coordinates_degrees[0] * d3_geo_radians - origin[0], lat = coordinates_degrees[1] * d3_geo_radians - origin[1], clon = Math.cos(lon), slon = Math.sin(lon), clat = Math.cos(lat), slat = Math.sin(lat);
-      var have_wrapped = false;
-      if (lon < -3.1415926535) {
-        lon += 3.1415926535 * 2;
-        have_wrapped = true;
-      }
-      if (lon > 3.1415926535) {
-        lon -= 3.1415926535 * 2;
-        have_wrapped = true;
-      }
-      if (scale <= 1.5) {
-        return generalized_hammer(2);
-      } else if (scale <= 2) {
-        return generalized_hammer(2 - (scale - 1.5) * 2);
-      } else if (scale <= 4) {
-        return generalized_hammer(1);
-      } else if (scale <= 13) {
-        return albers(coordinates_degrees);
-      } else if (scale <= 15) {
-        var lambda = (scale - 13) / 2, a = albers(coordinates_degrees), b = mercator(coordinates_degrees);
-        return [ (1 - lambda) * a[0] + lambda * b[0], (1 - lambda) * a[1] + lambda * b[1] ];
-      } else {
-        return mercator(coordinates_degrees);
-      }
+      return impl(coordinates_degrees, return_wrap);
     }
-    var origin, scale = 1, width = viewport[2] - viewport[0], height = viewport[3] - viewport[1], smaller_dimension = Math.min(width, height), viewport_center = [ viewport[0] + width / 2, viewport[1] + height / 2 ];
-    var albers = d3.geo.albers(), mercator = d3.geo.mercator();
-    albers.translate(viewport_center);
-    mercator.translate(viewport_center);
+    var origin = [ 0, 0 ], scale = 1, width = viewport[2] - viewport[0], height = viewport[3] - viewport[1], smaller_dimension = Math.min(width, height), viewport_center = [ viewport[0] + width / 2, viewport[1] + height / 2 ];
+    var albers_conic = function(origin, scale) {
+      var origin_degrees = [ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ];
+      var top_latitude = origin[1] + Math.sin(1 / (4 * scale));
+      var bottom_latitude = origin[1] - Math.sin(1 / (4 * scale));
+      var latitude_range = top_latitude - bottom_latitude;
+      return d3.geo.albers().scale(smaller_dimension).parallels([ (bottom_latitude + 15 * latitude_range / 100) / d3_geo_radians, (top_latitude - 15 * latitude_range / 100) / d3_geo_radians ]);
+    }, hammer = function(B, origin, scale) {
+      return d3.geo.hammer(B).scale(scale * smaller_dimension).origin([ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ]);
+    }, lambert_azimuthal = function(origin, scale) {
+      return d3.geo.lambert_azimuthal().scale(scale * smaller_dimension).origin([ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ]);
+    }, lambert_cylindrical = function(origin, scale) {
+      return d3.geo.lambert_cylindrical().scale(scale * smaller_dimension);
+    }, mercator = function(origin, scale) {
+      return d3.geo.mercator();
+    }, select_impl = function(origin, scale) {
+      if (scale <= 1.5) {
+        console.log("hammer");
+        return hammer(2, origin, scale);
+      } else if (scale <= 2) {
+        console.log("modified hammer");
+        return hammer(2 - (scale - 1.5) * 2, origin, scale);
+      } else if (scale <= 4) {
+        console.log("lambert azimuthal");
+        return lambert_azimuthal(origin, scale);
+      } else if (scale <= 6 && Math.abs(origin[1]) < Math.PI / 12) {
+        if (Math.abs(origin[1]) < (scale - 4) * Math.PI / 6) {
+          console.log("lambert cylindrical");
+          return lambert_cylindrical(origin, scale);
+        } else {
+          console.log("albers conic");
+          return albers_conic(origin, scale);
+        }
+      } else if (scale <= 13) {
+        if (Math.abs(origin[1]) <= Math.PI / 12) {
+          console.log("lambert cylindrical");
+          return lambert_cylindrical(origin, scale);
+        } else if (Math.abs(origin[1]) >= 5 * Math.PI / 12) {
+          console.log("lambert azimuthal");
+          return lambert_azimuthal(origin, scale);
+        } else {
+          console.log("albers conic");
+          return albers_conic(origin, scale);
+        }
+      } else {
+        console.log("Mercator not implemented yet!");
+      }
+    }, impl = select_impl(origin, scale);
     composite.invert = function(coordinates) {
-      console.log("I was called");
-      return [ 0, 0 ];
+      return impl.invert(coordinates);
     };
     composite.origin = function(origin_degrees) {
       if (!arguments.length) {
         return [ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ];
       }
       origin = [ origin_degrees[0] * d3_geo_radians, origin_degrees[1] * d3_geo_radians ];
-      albers.origin(origin_degrees);
+      impl = select_impl(origin, scale);
       return composite;
     };
     composite.scale = function(x) {
       if (!arguments.length) return scale;
       scale = +x;
-      albers.scale(x * 100);
-      mercator.scale(x * smaller_dimension);
+      impl = select_impl(origin, scale);
       return composite;
     };
-    return composite.origin([ 0, 0 ]);
+    return composite;
   };
   d3.geo.equirectangular = function() {
     function equirectangular(coordinates) {
@@ -6116,6 +6126,76 @@
       return equirectangular;
     };
     return equirectangular;
+  };
+  d3.geo.hammer = function(B) {
+    function hammer(coordinates_degrees, return_wrap) {
+      var lon = coordinates_degrees[0] * d3_geo_radians - origin[0], lat = coordinates_degrees[1] * d3_geo_radians - origin[1], clon = Math.cos(lon), slon = Math.sin(lon), clat = Math.cos(lat), slat = Math.sin(lat);
+      var have_wrapped = false;
+      if (lon < -Math.PI) {
+        lon += Math.PI * 2;
+        have_wrapped = true;
+      }
+      if (lon > Math.PI) {
+        lon -= Math.PI * 2;
+        have_wrapped = true;
+      }
+      var sqrt2 = Math.sqrt(2), sin_lon_over_b = Math.sin(lon / B), cos_lon_over_b = Math.cos(lon / B), nu = Math.sqrt(1 + clat * cos_lon_over_b);
+      x = B * sqrt2 * clat * sin_lon_over_b / nu, y = -sqrt2 * slat / nu;
+      if (return_wrap) {
+        return [ scale * 1.5 * x + translate[0], scale * 1.5 * y + translate[1], have_wrapped ];
+      } else {
+        return [ scale * 1.5 * x + translate[0], scale * 1.5 * y + translate[1] ];
+      }
+    }
+    if (B == undefined) B = 2;
+    var origin, scale = 500, translate = [ 480, 250 ];
+    hammer.invert = function(coordinates) {
+      console.log("invert hammer");
+      return [ 0, 0 ];
+    };
+    hammer.origin = function(origin_degrees) {
+      if (!arguments.length) {
+        return [ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ];
+      }
+      origin = [ origin_degrees[0] * d3_geo_radians, origin_degrees[1] * d3_geo_radians ];
+      return hammer;
+    };
+    hammer.scale = function(x) {
+      if (!arguments.length) return scale;
+      scale = +x;
+      return hammer;
+    };
+    hammer.translate = function(x) {
+      if (!arguments.length) return translate;
+      translate = [ +x[0], +x[1] ];
+      return hammer;
+    };
+    return hammer.origin([ 0, 0 ]);
+  };
+  d3.geo.lambert_azimuthal = function() {
+    return d3.geo.hammer(1);
+  };
+  d3.geo.lambert_cylindrical = function() {
+    function lambert_cylindrical(coordinates_degrees) {
+      var lon = coordinates_degrees[0] * d3_geo_radians, lat = coordinates_degrees[1] * d3_geo_radians, slat = Math.sin(lat), x_unnormalized = lon, y_unnormalized = -slat;
+      return [ x_unnormalized * 2 * scale / Math.PI + translate[0], y_unnormalized * scale / 2 + translate[1] ];
+    }
+    var origin, scale = 500, translate = [ 480, 250 ];
+    lambert_cylindrical.invert = function(coordinates) {
+      var x = coordinates[0], y = coordinates[1], lon_radians = x - translate[0] * Math.PI / scale, lat_radians = Math.asin(-(y - translate[1] * 2 / scale)), lon = lon_radians / d3_geo_radians, lat = lat_radians / d3_geo_radians;
+      return [ lon, lat ];
+    };
+    lambert_cylindrical.scale = function(x) {
+      if (!arguments.length) return scale;
+      scale = +x;
+      return lambert_cylindrical;
+    };
+    lambert_cylindrical.translate = function(x) {
+      if (!arguments.length) return translate;
+      translate = [ +x[0], +x[1] ];
+      return lambert_cylindrical;
+    };
+    return lambert_cylindrical;
   };
   d3.geo.mercator = function() {
     function mercator(coordinates) {
