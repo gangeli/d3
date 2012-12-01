@@ -48,47 +48,67 @@ d3.geo.composite = function(viewport) {
            .origin([origin[0] / d3_geo_radians, origin[1] / d3_geo_radians]);
        },
      mercator = function(origin, scale) {
-         // TODO(gangeli)
-         return d3.geo.mercator();
+         var merc = d3.geo.mercator()
+           .scale(scale * smaller_dimension * 3.14) // FIXME: magic number
+           .translate([-480, -250]);
+         var origin_degrees = [origin[0] / d3_geo_radians, origin[1] / d3_geo_radians],
+             tmp = merc(origin_degrees);
+         return merc
+           .translate([-tmp[0], -tmp[1]]);
        },
-       
+     mercator_interpolated = function(origin, scale) {
+       var impl1 = select_impl(origin, scale, true)[0],
+           impl2 = mercator(origin, scale),
+           alpha = (scale - 13) / 2;
+       var ret = function(coordinates) {
+         var xy = impl1(coordinates),
+             xy2 = impl2(coordinates);
+         return [(1 - alpha) * xy[0] + alpha * xy2[0], (1 - alpha) * xy[1] + alpha * xy2[1]];
+       };
+       ret.invert = function(coordinates) {
+         var xy = impl1.invert(coordinates),
+             xy2 = impl2.invert(coordinates);
+         return [(1 - alpha) * xy[0] + alpha * xy2[0], (1 - alpha) * xy[1] + alpha * xy2[1]];
+       };
+       return ret;
+     },
+
+     impl,
      impl_name = "",
-     select_impl = function(origin, scale) {
+     select_impl = function(origin, scale, dontInterpolate) {
          if (scale <= 1.5) {
-           impl_name = "Hammer";
-           return hammer(2.0, origin, scale);
+           return [hammer(2.0, origin, scale), "Hammer"];
          } else if (scale <= 2.0) {
-           impl_name = "Modified Hammer";
-           return hammer(2.0 - (scale-1.5) * 2.0, origin, scale);
+           return [hammer(2.0 - (scale-1.5) * 2.0, origin, scale), "Modified Hammer"];
          } else if (scale <= 4.0) {
-           impl_name = "Lambert azimuthal";
-           return lambert_azimuthal(origin, scale);
+           return [lambert_azimuthal(origin, scale), "Lambert azimuthal"];
          } else if (scale <= 6.0 && Math.abs(origin[1]) < Math.PI / 12) {
            if (Math.abs(origin[1]) < (scale - 4.0) * Math.PI / 6) {
-             impl_name = "Lambert cylindrical";
-             return lambert_cylindrical(origin, scale);
+             return [lambert_cylindrical(origin, scale), "Lambert cylindrical"];
            } else {
-             impl_name = "Albers conic";
-             return albers_conic(origin, scale);
+             return [albers_conic(origin, scale), "Albers conic"];
            }
-         } else if (scale <= 13) {
+         } else if (scale <= 13 || (scale < 15 && dontInterpolate)) {
            if (Math.abs(origin[1]) <= Math.PI / 12) {
-             impl_name = "Lambert cylindrical";
-             return lambert_cylindrical(origin, scale);
+             return [lambert_cylindrical(origin, scale), "Lambert cylindrical"];
            } else if (Math.abs(origin[1]) >= 5.0 * Math.PI / 12) {
-             impl_name = "Lambert azimuthal";
-             return lambert_azimuthal(origin, scale);
+             return [lambert_azimuthal(origin, scale), "Lambert azimuthal"];
            } else {
-             impl_name = "Albers conic";
-             return albers_conic(origin, scale);
+             return [albers_conic(origin, scale), "Albers conic"];
            }
+         } else if (scale < 15) {
+           return [mercator_interpolated(origin, scale), "Interpolation with Mercator"];
          } else {
-           impl_name = "Mercator";
-           console.log("Mercator not implemented yet!");
+           return [mercator(origin, scale), "Mercator"];
          }
        },
+     update_impl = function(origin, scale) {
+       var tmp = select_impl(origin, scale);
+       impl = tmp[0];
+       impl_name = tmp[1];
+     }
 
-     impl = select_impl(origin, scale);
+     update_impl(origin, scale);
 
   function composite(coordinates_degrees, return_wrap) {
     return impl(coordinates_degrees, return_wrap);
@@ -113,14 +133,14 @@ d3.geo.composite = function(viewport) {
     while (origin[0] > Math.PI) origin[0] -= Math.PI * 2.0;
     while (origin[1] < -Math.PI) origin[1] += Math.PI * 2.0;
     while (origin[1] > Math.PI) origin[1] -= Math.PI * 2.0;
-    impl = select_impl(origin, scale);
+    update_impl(origin, scale);
     return composite;
   };
 
   composite.scale = function(x) {
     if (!arguments.length) return scale;
     scale = +x;
-    impl = select_impl(origin, scale);
+    update_impl(origin, scale);
     return composite;
   };
   
