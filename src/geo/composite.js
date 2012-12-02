@@ -14,7 +14,7 @@ d3.geo.composite = function(viewport) {
       smaller_dimension = Math.min(width, height),
       viewport_center = [viewport[0] + width/2, viewport[1] + height/2];
 
-  var albers_conic = function(origin, scale) {
+  var albers_conic = function(origin, scale, alpha, dest_parellel) {
          // TODO(gangeli)
          var origin_degrees = [
              origin[0] / d3_geo_radians,
@@ -22,13 +22,19 @@ d3.geo.composite = function(viewport) {
            ];
          var top_coord = [viewport_center[0], viewport[1]],
              bot_coord = [viewport_center[0], viewport[3]],
-             top_latitude = impl.invert(top_coord)[1],
+             top_latitude = impl.invert(top_coord)[1], // FIXME: which impl?
              bottom_latitude = impl.invert(bot_coord)[1],
-             latitude_range = top_latitude - bottom_latitude;
+             latitude_range = top_latitude - bottom_latitude,
+             top_parellel = top_latitude - 15 * latitude_range / 100.0,
+             bottom_parellel = bottom_latitude + 15 * latitude_range / 100.0;
+         if (typeof alpha != "undefined") {
+           top_parellel = (1 - alpha) * top_parellel + alpha * dest_parellel;
+           bottom_parellel = (1 - alpha) * bottom_parellel + alpha * dest_parellel;
+         }
          return d3.geo.albers()
            .parallels([
-             (bottom_latitude + 15 * latitude_range / 100.0),
-             (top_latitude - 15 * latitude_range / 100.0)])
+             bottom_parellel,
+             top_parellel])
            .origin(origin_degrees)
            .scale(scale * smaller_dimension * 0.5)
        },
@@ -56,10 +62,9 @@ d3.geo.composite = function(viewport) {
          return merc
            .translate([-tmp[0], -tmp[1]]);
        },
-     mercator_interpolated = function(origin, scale) {
+     mercator_interpolated = function(origin, scale, alpha) {
        var impl1 = select_impl(origin, scale, true)[0],
-           impl2 = mercator(origin, scale),
-           alpha = (scale - 13) / 2;
+           impl2 = mercator(origin, scale);
        var ret = function(coordinates) {
          var xy = impl1(coordinates),
              xy2 = impl2(coordinates);
@@ -76,28 +81,39 @@ d3.geo.composite = function(viewport) {
      impl,
      impl_name = "",
      select_impl = function(origin, scale, dontInterpolate) {
+         var lat = Math.abs(origin[1]) * 180 / Math.PI;
          if (scale <= 1.5) {
            return [hammer(2.0, origin, scale), "Hammer"];
          } else if (scale <= 2.0) {
            return [hammer(2.0 - (scale-1.5) * 2.0, origin, scale), "Modified Hammer"];
          } else if (scale <= 4.0) {
            return [lambert_azimuthal(origin, scale), "Lambert azimuthal"];
-         } else if (scale <= 6.0 && Math.abs(origin[1]) < Math.PI / 12) {
-           if (Math.abs(origin[1]) < (scale - 4.0) * Math.PI / 6) {
+         } else if (scale <= 6.0 && lat < 22) {
+           var lat2 = (scale - 4.0) * 15 / 2;
+           if (lat < lat2) {
              return [lambert_cylindrical(origin, scale), "Lambert cylindrical"];
            } else {
-             return [albers_conic(origin, scale), "Albers conic"];
+             return [albers_conic(origin, scale, (22 - lat) / (22 - lat2), 0),
+               "Albers conic with adjusted standard parellels"];
            }
          } else if (scale <= 13 || (scale < 15 && dontInterpolate)) {
-           if (Math.abs(origin[1]) <= Math.PI / 12) {
+           if (lat <= 15) {
              return [lambert_cylindrical(origin, scale), "Lambert cylindrical"];
-           } else if (Math.abs(origin[1]) >= 5.0 * Math.PI / 12) {
+           } else if (lat >= 75) {
              return [lambert_azimuthal(origin, scale), "Lambert azimuthal"];
            } else {
-             return [albers_conic(origin, scale), "Albers conic"];
+             if (lat < 22) {
+               return [albers_conic(origin, scale, (22 - lat) / (22 - 15), 0),
+                 "Albers conic with adjusted standard parellels"];
+             } else if (lat > 60) {
+               return [albers_conic(origin, scale, (lat - 60) / (75 - 60), 90),
+                 "Albers conic with adjusted standard parellels"];
+             } else {
+               return [albers_conic(origin, scale), "Albers conic"];
+             }
            }
          } else if (scale < 15) {
-           return [mercator_interpolated(origin, scale), "Interpolation with Mercator"];
+           return [mercator_interpolated(origin, scale, (scale - 13) / 2), "Interpolation with Mercator"];
          } else {
            return [mercator(origin, scale), "Mercator"];
          }
