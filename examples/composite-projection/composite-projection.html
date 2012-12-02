@@ -126,24 +126,24 @@ d3.json("../data/world-countries.json", function(collection) {
       .attr("d", path);
 });
 
-var graticule = d3.geo.graticule()
-  .step([20, 20]);
-
-var graticules = svg.append("g");
-
-if (1)
-graticules
-  .append("path")
-    .datum(graticule)
-    .attr("class", "graticule line")
-    .attr("d", path);
-
-if (0)
-graticules
-  .append("path")
-    .datum(graticule.outline)
-    .attr("class", "graticule outline")
-    .attr("d", path);
+//var graticule = d3.geo.graticule()
+//  .step([20, 20]);
+//
+//var graticules = svg.append("g");
+//
+//if (1)
+//graticules
+//  .append("path")
+//    .datum(graticule)
+//    .attr("class", "graticule line")
+//    .attr("d", path);
+//
+//if (0)
+//graticules
+//  .append("path")
+//    .datum(graticule.outline)
+//    .attr("class", "graticule outline")
+//    .attr("d", path);
 
 
 var viewport = svg2g.append("rect")
@@ -153,13 +153,13 @@ var viewport = svg2g.append("rect")
   .attr("width", width)
   .attr("height", height);
   
-var graticules2 = svg2g.append("g");
-
-graticules2
-  .append("path")
-    .datum(graticule)
-    .attr("class", "graticule line")
-    .attr("d", path);
+//var graticules2 = svg2g.append("g");
+//
+//graticules2
+//  .append("path")
+//    .datum(graticule)
+//    .attr("class", "graticule line")
+//    .attr("d", path);
 
 var projectionName = svg2.append("text")
     .attr("id", "projectionname")
@@ -172,8 +172,8 @@ var projectionName = svg2.append("text")
 function refresh() {
   states.selectAll("path")
       .attr("d", path);
-  graticules.selectAll("path")
-      .attr("d", path);
+//  graticules.selectAll("path")
+//      .attr("d", path);
   states.select("circle")
       .attr("transform", "translate(" + xy(xy.origin()).join(",") + ")")
   d3.select("#lon span")
@@ -190,10 +190,10 @@ function refresh() {
     "scale(" + (1/xy.scale() * 0.6) + ")" +
     "translate(" + (-width/2) + "," + (-height/2) + ")"
     );
-  graticules2.selectAll("path")
-    .attr("d", path)
-    .attr("stroke-width", xy.scale() / 0.6)
-    ;
+//  graticules2.selectAll("path")
+//    .attr("d", path)
+//    .attr("stroke-width", xy.scale() / 0.6)
+//    ;
   viewport.attr("stroke-width", xy.scale() / 0.6 * 1.4);
   projectionName.text(xy.projectionName());
 }
