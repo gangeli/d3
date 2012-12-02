@@ -20,13 +20,92 @@ d3.geo.path = function() {
     return result;
   }
 
-  function project(coordinates) {
-    var projected = projection(coordinates, true)
-    if (projected.length == 3) {
-      return [projected[0] + "," + projected[1], projected[2]];
-    } else {
-      return [projected.join(","), false];
+  /*
+   * Project a path onto the map, taking into account whether or not the
+   * polygon wraps around the edge of the map.
+   */
+  function projectPath(buffer, coordinates, isPolygon) {
+    isPolygon = false;
+    var projected = [],
+        paths = {},
+        n = coordinates.length,
+        i = -1;
+    // Step 1: get projection
+    i = -1;
+    while (++i < n) {
+      projected[i] = projection(coordinates[i]);
     }
+    // Step 2: split into independent paths
+    paths[[false, false]]  = []
+    paths[[true, false]]  = []
+    paths[[false, true]]  = []
+    paths[[true, true]] = []
+    i = -1;
+    var loopState = [false, false];
+    function sign(x) { return x < 0 ? -1 : 1; }
+    while (++i < n) {
+      if (i == 0) {
+        paths[loopState].push( projected[i] );
+        continue;
+      }
+      var dxTrue = coordinates[i][0] - coordinates[i-1][0],
+          dyTrue = coordinates[i][1] - coordinates[i-1][1],
+          dxProj = projected[i][1] - projected[i-1][1],
+          dyProj = projected[i][1] - projected[i-1][1];
+      if (sign(dxTrue) == sign(dxProj) && sign(dyTrue) == sign(dyProj)) {
+        paths[loopState].push( projected[i] );
+      } else if (sign(dxTrue) != sign(dxProj) && sign(dyTrue) != sign(dyProj)) {
+        if (isPolygon) paths[loopState].push(["THUNK", i]);
+        loopState = [!loopState[0], !loopState[1]];
+        paths[loopState].push( projected[i] );
+      } else if (sign(dxTrue) != sign(dxProj)) {
+        if (isPolygon) paths[loopState].push(["THUNK", i]);
+        loopState = [!loopState[0], loopState[1]];
+        paths[loopState].push( projected[i] );
+      } else if (sign(dyTrue) != sign(dyProj)) {
+        if (isPolygon) paths[loopState].push(["THUNK", i]);
+        loopState = [loopState[0], !loopState[1]];
+        paths[loopState].push( projected[i] );
+      } else { /* impossible */ }
+    }
+    // Step 3: interpolate jagged edges
+    if (isPolygon) {
+      for (loopState in paths) {
+        var points    = paths[loopState],
+            newPoints = [];
+        paths[loopState] = [];
+        i = -1;
+        while (++i < points.length) {
+          if (points[i][0] == "THUNK") {
+            var lastPoint = coordinates[points[i][1] - 1],
+                nextPoint = projection.invert(points[(i + 1) % points.length]),
+                j = 1;
+            for (j = 1; j <= 10; ++j) {
+              newPoints.push( projection(
+                [(10 - j) / 10 * lastPoint[0] + j / 10 * nextPoint[0],
+                 (10 - j) / 10 * lastPoint[1] + j / 10 * nextPoint[1]]));
+            }
+          } else {
+            newPoints.push(points[i]);
+          }
+        }
+        paths[loopState] = newPoints;
+      }
+    }
+    // Step 4: fill buffer
+//    for (loopState in paths) {
+      i = -1;
+      var points = paths[[false,false]],
+          n = points.length;
+      if (n > 0) {
+        buffer.push("M")
+        while (++i < n) {
+          buffer.push(points[i].join(","), "L");
+        }
+        buffer.pop();
+        buffer.push("Z");
+      }
+//    }
   }
 
   var pathType = d3_geo_type({
@@ -43,28 +122,18 @@ d3.geo.path = function() {
     },
 
     Point: function(o) {
-      buffer.push("M", project(o.coordinates)[0], pointCircle);
+      buffer.push("M", projection(o.coordinates).join(","), pointCircle);
     },
 
     MultiPoint: function(o) {
       var coordinates = o.coordinates,
           i = -1, // coordinates.index
           n = coordinates.length;
-      while (++i < n) buffer.push("M", project(coordinates[i])[0], pointCircle);
+      while (++i < n) buffer.push("M", projection(coordinates[i]).join(","), pointCircle);
     },
 
     LineString: function(o) {
-      var coordinates = o.coordinates,
-          i = -1, // coordinates.index
-          n = coordinates.length,
-          last_point_wrapped;
-      while (++i < n) {
-        var projected = project(coordinates[i])
-        if (isNaN(projected[0][1])) // FIXME
-          continue;
-        buffer.push((projected[1] == last_point_wrapped && i > 0) ? "L" : "M", projected[0]);
-        last_point_wrapped = projected[1]
-      }
+      projectPath(buffer, o.coordinates, false);
     },
 
     MultiLineString: function(o) {
@@ -78,14 +147,7 @@ d3.geo.path = function() {
         subcoordinates = coordinates[i];
         j = -1;
         m = subcoordinates.length;
-        buffer.push("M");
-        last_point_wrapped = false;
-        while (++j < m) {
-          var projected = project(subcoordinates[j])
-          buffer.push(projected[0], projected[1] == last_point_wrapped ? "L" : "M");
-          last_point_wrapped = projected[1]
-        }
-        buffer.pop();
+        projectPath(buffer, subcoordinates, false);
       }
     },
 
@@ -100,13 +162,7 @@ d3.geo.path = function() {
         subcoordinates = coordinates[i];
         j = -1;
         if ((m = subcoordinates.length - 1) > 0) {
-          last_point_wrapped = !project(subcoordinates[0])[1];
-          while (++j < m) {
-            var projected = project(subcoordinates[j])
-            buffer.push(projected[1] == last_point_wrapped ? "L" : "M", projected[0]);
-            last_point_wrapped = projected[1]
-          }
-          buffer.push("Z");
+          projectPath(buffer, subcoordinates, true);
         }
       }
     },
@@ -129,13 +185,7 @@ d3.geo.path = function() {
           subsubcoordinates = subcoordinates[j];
           k = -1;
           if ((p = subsubcoordinates.length - 1) > 0) {
-            last_point_wrapped = !project(subsubcoordinates[0])[1];
-            while (++k < p) {
-              var projected = project(subsubcoordinates[k])
-              buffer.push(projected[1] == last_point_wrapped ? "L" : "M", projected[0]);
-              last_point_wrapped = projected[1]
-            }
-            buffer.push("Z");
+            projectPath(buffer, subsubcoordinates, true);
           }
         }
       }

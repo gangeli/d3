@@ -6042,7 +6042,7 @@
     var albers_conic = function(origin, scale) {
       var origin_degrees = [ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ];
       var top_coord = [ viewport_center[0], viewport[1] ], bot_coord = [ viewport_center[0], viewport[3] ], top_latitude = impl.invert(top_coord)[1], bottom_latitude = impl.invert(bot_coord)[1], latitude_range = top_latitude - bottom_latitude;
-      return d3.geo.albers().scale(smaller_dimension).parallels([ bottom_latitude + 15 * latitude_range / 100, top_latitude - 15 * latitude_range / 100 ]).scale(scale * smaller_dimension * .5).origin([ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ]);
+      return d3.geo.albers().parallels([ bottom_latitude + 15 * latitude_range / 100, top_latitude - 15 * latitude_range / 100 ]).origin(origin_degrees).scale(scale * smaller_dimension * .5);
     }, hammer = function(B, origin, scale) {
       return d3.geo.hammer(B).scale(scale * smaller_dimension).origin([ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ]);
     }, lambert_azimuthal = function(origin, scale) {
@@ -6050,41 +6050,52 @@
     }, lambert_cylindrical = function(origin, scale) {
       return d3.geo.lambert_cylindrical().scale(scale * smaller_dimension).origin([ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ]);
     }, mercator = function(origin, scale) {
-      return d3.geo.mercator();
-    }, impl_name = "", select_impl = function(origin, scale) {
+      var merc = d3.geo.mercator().scale(scale * smaller_dimension * 3.14).translate([ -480, -250 ]);
+      var origin_degrees = [ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ], tmp = merc(origin_degrees);
+      return merc.translate([ -tmp[0], -tmp[1] ]);
+    }, mercator_interpolated = function(origin, scale) {
+      var impl1 = select_impl(origin, scale, true)[0], impl2 = mercator(origin, scale), alpha = (scale - 13) / 2;
+      var ret = function(coordinates) {
+        var xy = impl1(coordinates), xy2 = impl2(coordinates);
+        return [ (1 - alpha) * xy[0] + alpha * xy2[0], (1 - alpha) * xy[1] + alpha * xy2[1] ];
+      };
+      ret.invert = function(coordinates) {
+        var xy = impl1.invert(coordinates), xy2 = impl2.invert(coordinates);
+        return [ (1 - alpha) * xy[0] + alpha * xy2[0], (1 - alpha) * xy[1] + alpha * xy2[1] ];
+      };
+      return ret;
+    }, impl, impl_name = "", select_impl = function(origin, scale, dontInterpolate) {
       if (scale <= 1.5) {
-        impl_name = "Hammer";
-        return hammer(2, origin, scale);
+        return [ hammer(2, origin, scale), "Hammer" ];
       } else if (scale <= 2) {
-        impl_name = "Modified Hammer";
-        return hammer(2 - (scale - 1.5) * 2, origin, scale);
+        return [ hammer(2 - (scale - 1.5) * 2, origin, scale), "Modified Hammer" ];
       } else if (scale <= 4) {
-        impl_name = "Lambert azimuthal";
-        return lambert_azimuthal(origin, scale);
+        return [ lambert_azimuthal(origin, scale), "Lambert azimuthal" ];
       } else if (scale <= 6 && Math.abs(origin[1]) < Math.PI / 12) {
         if (Math.abs(origin[1]) < (scale - 4) * Math.PI / 6) {
-          impl_name = "Lambert cylindrical";
-          return lambert_cylindrical(origin, scale);
+          return [ lambert_cylindrical(origin, scale), "Lambert cylindrical" ];
         } else {
-          impl_name = "Albers conic";
-          return albers_conic(origin, scale);
+          return [ albers_conic(origin, scale), "Albers conic" ];
         }
-      } else if (scale <= 13) {
+      } else if (scale <= 13 || scale < 15 && dontInterpolate) {
         if (Math.abs(origin[1]) <= Math.PI / 12) {
-          impl_name = "Lambert cylindrical";
-          return lambert_cylindrical(origin, scale);
+          return [ lambert_cylindrical(origin, scale), "Lambert cylindrical" ];
         } else if (Math.abs(origin[1]) >= 5 * Math.PI / 12) {
-          impl_name = "Lambert azimuthal";
-          return lambert_azimuthal(origin, scale);
+          return [ lambert_azimuthal(origin, scale), "Lambert azimuthal" ];
         } else {
-          impl_name = "Albers conic";
-          return albers_conic(origin, scale);
+          return [ albers_conic(origin, scale), "Albers conic" ];
         }
+      } else if (scale < 15) {
+        return [ mercator_interpolated(origin, scale), "Interpolation with Mercator" ];
       } else {
-        impl_name = "Mercator";
-        console.log("Mercator not implemented yet!");
+        return [ mercator(origin, scale), "Mercator" ];
       }
-    }, impl = select_impl(origin, scale);
+    }, update_impl = function(origin, scale) {
+      var tmp = select_impl(origin, scale);
+      impl = tmp[0];
+      impl_name = tmp[1];
+    };
+    update_impl(origin, scale);
     composite.invert = function(coordinates) {
       return impl.invert(coordinates);
     };
@@ -6095,15 +6106,15 @@
       origin = [ origin_degrees[0] * d3_geo_radians, origin_degrees[1] * d3_geo_radians ];
       while (origin[0] < -Math.PI) origin[0] += Math.PI * 2;
       while (origin[0] > Math.PI) origin[0] -= Math.PI * 2;
-      while (origin[1] < -Math.PI / 2) origin[1] += Math.PI;
-      while (origin[1] > Math.PI / 2) origin[1] -= Math.PI;
-      impl = select_impl(origin, scale);
+      while (origin[1] < -Math.PI) origin[1] += Math.PI * 2;
+      while (origin[1] > Math.PI) origin[1] -= Math.PI * 2;
+      update_impl(origin, scale);
       return composite;
     };
     composite.scale = function(x) {
       if (!arguments.length) return scale;
       scale = +x;
-      impl = select_impl(origin, scale);
+      update_impl(origin, scale);
       return composite;
     };
     composite.projectionName = function() {
@@ -6148,17 +6159,16 @@
       return [ Math.atan2(y, x * cosdelta - z * sindelta), Math.asin(Math.max(-1, Math.min(1, k))) ];
     }
     function hammer(coordinates_degrees, return_wrap) {
-      var lon = coordinates_degrees[0] * d3_geo_radians - origin[0], lat = coordinates_degrees[1] * d3_geo_radians, have_wrapped_lon = false, have_wrapped_lat = false;
+      var lon = coordinates_degrees[0] * d3_geo_radians - origin[0], lat = coordinates_degrees[1] * d3_geo_radians, have_wrapped = false;
       while (lon < -Math.PI) {
         lon += Math.PI * 2;
-        have_wrapped_lon = !have_wrapped_lon;
+        have_wrapped = !have_wrapped;
       }
       while (lon > Math.PI) {
         lon -= Math.PI * 2;
-        have_wrapped_lon = !have_wrapped_lon;
+        have_wrapped = !have_wrapped;
       }
-      lat = rotateLatitude(lon, lat, origin[1]);
-      var have_wrapped = have_wrapped_lon ^ have_wrapped_lat;
+      var center = rotateLatitude(lon, lat, -origin[1]), lon = center[0], lat = center[1];
       var sqrt2 = Math.sqrt(2), clon = Math.cos(lon), slon = Math.sin(lon), clat = Math.cos(lat), slat = Math.sin(lat);
       sin_lon_over_b = Math.sin(lon / B), cos_lon_over_b = Math.cos(lon / B), nu = Math.sqrt(1 + clat * cos_lon_over_b), x = B * sqrt2 * clat * sin_lon_over_b / nu, y = -sqrt2 * slat / nu;
       if (return_wrap) {
@@ -6279,12 +6289,71 @@
       buffer = [];
       return result;
     }
-    function project(coordinates) {
-      var projected = projection(coordinates, true);
-      if (projected.length == 3) {
-        return [ projected[0] + "," + projected[1], projected[2] ];
-      } else {
-        return [ projected.join(","), false ];
+    function projectPath(buffer, coordinates, isPolygon) {
+      function sign(x) {
+        return x < 0 ? -1 : 1;
+      }
+      isPolygon = false;
+      var projected = [], paths = {}, n = coordinates.length, i = -1;
+      i = -1;
+      while (++i < n) {
+        projected[i] = projection(coordinates[i]);
+      }
+      paths[[ false, false ]] = [];
+      paths[[ true, false ]] = [];
+      paths[[ false, true ]] = [];
+      paths[[ true, true ]] = [];
+      i = -1;
+      var loopState = [ false, false ];
+      while (++i < n) {
+        if (i == 0) {
+          paths[loopState].push(projected[i]);
+          continue;
+        }
+        var dxTrue = coordinates[i][0] - coordinates[i - 1][0], dyTrue = coordinates[i][1] - coordinates[i - 1][1], dxProj = projected[i][1] - projected[i - 1][1], dyProj = projected[i][1] - projected[i - 1][1];
+        if (sign(dxTrue) == sign(dxProj) && sign(dyTrue) == sign(dyProj)) {
+          paths[loopState].push(projected[i]);
+        } else if (sign(dxTrue) != sign(dxProj) && sign(dyTrue) != sign(dyProj)) {
+          if (isPolygon) paths[loopState].push([ "THUNK", i ]);
+          loopState = [ !loopState[0], !loopState[1] ];
+          paths[loopState].push(projected[i]);
+        } else if (sign(dxTrue) != sign(dxProj)) {
+          if (isPolygon) paths[loopState].push([ "THUNK", i ]);
+          loopState = [ !loopState[0], loopState[1] ];
+          paths[loopState].push(projected[i]);
+        } else if (sign(dyTrue) != sign(dyProj)) {
+          if (isPolygon) paths[loopState].push([ "THUNK", i ]);
+          loopState = [ loopState[0], !loopState[1] ];
+          paths[loopState].push(projected[i]);
+        } else {}
+      }
+      if (isPolygon) {
+        for (loopState in paths) {
+          var points = paths[loopState], newPoints = [];
+          paths[loopState] = [];
+          i = -1;
+          while (++i < points.length) {
+            if (points[i][0] == "THUNK") {
+              var lastPoint = coordinates[points[i][1] - 1], nextPoint = projection.invert(points[(i + 1) % points.length]), j = 1;
+              for (j = 1; j <= 10; ++j) {
+                newPoints.push(projection([ (10 - j) / 10 * lastPoint[0] + j / 10 * nextPoint[0], (10 - j) / 10 * lastPoint[1] + j / 10 * nextPoint[1] ]));
+              }
+            } else {
+              newPoints.push(points[i]);
+            }
+          }
+          paths[loopState] = newPoints;
+        }
+      }
+      i = -1;
+      var points = paths[[ false, false ]], n = points.length;
+      if (n > 0) {
+        buffer.push("M");
+        while (++i < n) {
+          buffer.push(points[i].join(","), "L");
+        }
+        buffer.pop();
+        buffer.push("Z");
       }
     }
     function polygonArea(coordinates) {
@@ -6317,20 +6386,14 @@
         pathType(o.geometry);
       },
       Point: function(o) {
-        buffer.push("M", project(o.coordinates)[0], pointCircle);
+        buffer.push("M", projection(o.coordinates).join(","), pointCircle);
       },
       MultiPoint: function(o) {
         var coordinates = o.coordinates, i = -1, n = coordinates.length;
-        while (++i < n) buffer.push("M", project(coordinates[i])[0], pointCircle);
+        while (++i < n) buffer.push("M", projection(coordinates[i]).join(","), pointCircle);
       },
       LineString: function(o) {
-        var coordinates = o.coordinates, i = -1, n = coordinates.length, last_point_wrapped;
-        while (++i < n) {
-          var projected = project(coordinates[i]);
-          if (isNaN(projected[0][1])) continue;
-          buffer.push(projected[1] == last_point_wrapped && i > 0 ? "L" : "M", projected[0]);
-          last_point_wrapped = projected[1];
-        }
+        projectPath(buffer, o.coordinates, false);
       },
       MultiLineString: function(o) {
         var coordinates = o.coordinates, i = -1, n = coordinates.length, subcoordinates, j, m;
@@ -6338,14 +6401,7 @@
           subcoordinates = coordinates[i];
           j = -1;
           m = subcoordinates.length;
-          buffer.push("M");
-          last_point_wrapped = false;
-          while (++j < m) {
-            var projected = project(subcoordinates[j]);
-            buffer.push(projected[0], projected[1] == last_point_wrapped ? "L" : "M");
-            last_point_wrapped = projected[1];
-          }
-          buffer.pop();
+          projectPath(buffer, subcoordinates, false);
         }
       },
       Polygon: function(o) {
@@ -6354,13 +6410,7 @@
           subcoordinates = coordinates[i];
           j = -1;
           if ((m = subcoordinates.length - 1) > 0) {
-            last_point_wrapped = !project(subcoordinates[0])[1];
-            while (++j < m) {
-              var projected = project(subcoordinates[j]);
-              buffer.push(projected[1] == last_point_wrapped ? "L" : "M", projected[0]);
-              last_point_wrapped = projected[1];
-            }
-            buffer.push("Z");
+            projectPath(buffer, subcoordinates, true);
           }
         }
       },
@@ -6374,13 +6424,7 @@
             subsubcoordinates = subcoordinates[j];
             k = -1;
             if ((p = subsubcoordinates.length - 1) > 0) {
-              last_point_wrapped = !project(subsubcoordinates[0])[1];
-              while (++k < p) {
-                var projected = project(subsubcoordinates[k]);
-                buffer.push(projected[1] == last_point_wrapped ? "L" : "M", projected[0]);
-                last_point_wrapped = projected[1];
-              }
-              buffer.push("Z");
+              projectPath(buffer, subsubcoordinates, true);
             }
           }
         }
