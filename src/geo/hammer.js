@@ -51,10 +51,8 @@ d3.geo.hammer = function(B) {
         lat = center[1];
     // Projection
     var sqrt2 = Math.sqrt(2),
-        clon = Math.cos(lon),
-        slon = Math.sin(lon),
         clat = Math.cos(lat),
-        slat = Math.sin(lat);
+        slat = Math.sin(lat),
         sin_lon_over_b = Math.sin(lon / B),
         cos_lon_over_b = Math.cos(lon / B),
         nu = Math.sqrt(1 + clat * cos_lon_over_b),
