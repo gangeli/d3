@@ -25,9 +25,9 @@ d3.geo.path = function() {
    * polygon wraps around the edge of the map.
    */
   function projectPath(buffer, coordinates, isPolygon) {
-    isPolygon = false;
     var projected = [],
         paths = {},
+        reverse = {},
         n = coordinates.length,
         i = -1;
     // Step 1: get projection
@@ -36,8 +36,8 @@ d3.geo.path = function() {
       projected[i] = projection(coordinates[i]);
     }
     // Step 2: split into independent paths
-    paths[true]   = []
-    paths[false]  = []
+    paths[true]   = []; reverse[true] = [];
+    paths[false]  = []; reverse[false] = [];
     i = -1;
     var loopState = true;
     function cosSim(empirical, expected) {
@@ -52,8 +52,12 @@ d3.geo.path = function() {
         return numer / denom;
       }
     }
+    function normdiff(v1, v2) {
+      return Math.sqrt((v1[0]-v2[0])*(v1[0]-v2[0]) + (v1[1]-v2[1])*(v1[1]-v2[1]));
+    }
     while (++i < n) {
       if (i == 0) {
+        reverse[loopState].push( coordinates[i] );
         paths[loopState].push( projected[i] );
         continue;
       }
@@ -71,51 +75,49 @@ d3.geo.path = function() {
       // The vector is pointing the same way as expected, and is either
       // roughly the right magnitude, or less than 5 pixels total (we start
       // to lose precision with vectors that small).
-      if ((Math.abs(coordinates[i][0]) > 75 || cosSim([dx,dy], [sdx,sdy]) > 0.0) &&
+      if ((Math.abs(coordinates[i][0]) > 75 || cosSim([dx,dy], [sdx,sdy]) > 0.5) &&
           (Math.abs(Math.log(Math.abs(m) / Math.abs(em)) < 1 || Math.abs(m) < 5))) {
+        reverse[loopState].push( coordinates[i] );
         paths[loopState].push( projected[i] );
       } else {
-        if (isPolygon) paths[loopState].push(["THUNK", i]);
         loopState = !loopState;
+        reverse[loopState].push( coordinates[i] );
         paths[loopState].push( projected[i] );
-      }
-    }
-    // Step 3: interpolate jagged edges
-    if (isPolygon) {
-      for (loopState in paths) {
-        var points    = paths[loopState],
-            newPoints = [];
-        paths[loopState] = [];
-        i = -1;
-        while (++i < points.length) {
-          if (points[i][0] == "THUNK") {
-            var lastPoint = coordinates[points[i][1] - 1],
-                nextPoint = projection.invert(points[(i + 1) % points.length]),
-                j = 1,
-                m = 1;
-            for (j = 1; j <= m; ++j) {
-              newPoints.push( projection(
-                [(m - j) / m * lastPoint[0] + j / m * nextPoint[0],
-                 (m - j) / m * lastPoint[1] + j / m * nextPoint[1]]));
-            }
-          } else {
-            newPoints.push(points[i]);
-          }
-        }
-        paths[loopState] = newPoints;
       }
     }
     // Step 4: fill buffer
     for (loopState in paths) {
-      i = -1;
+      i = 0;
       var points = paths[loopState],
+          rev = reverse[loopState],
           n = points.length;
       if (n > 0) {
-        buffer.push("M")
+        buffer.push("M", points[0].join(","))
         while (++i < n) {
-          buffer.push(points[i].join(","), "L");
+          var minDist = 25;
+          function interpolate(a, b, origA, origB, depth) {
+            var dist = normdiff(a, b);
+            if (depth > 2) {
+              buffer.push("M", b.join(","));
+            } else if (dist > minDist) {
+              var k = 1,
+                  last = a,
+                  lastOrig = origA;
+              while (k * minDist < dist) {
+                var interpolated = [(k * minDist / dist) * origA[0] + (1.0 - k * minDist / dist) * origB[0],
+                                    (k * minDist / dist) * origA[1] + (1.0 - k * minDist / dist) * origB[1]],
+                    projected = projection(interpolated);
+                interpolate(last, projected, lastOrig, interpolated, depth + 1);
+                k += 1;
+                last = projected;
+                lastOrig = interpolated;
+              }
+            } else {
+              buffer.push("L", b.join(","));
+            }
+          }
+          interpolate(points[i-1], points[i], rev[i-1], rev[i], 0);
         }
-        buffer.pop();
       }
     }
     buffer.push("Z");

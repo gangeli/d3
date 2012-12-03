@@ -6170,24 +6170,14 @@
       var cosdelta = Math.cos(delta), sindelta = Math.sin(delta), clat = Math.cos(latitude), x = Math.cos(longitude) * clat, y = Math.sin(longitude) * clat, z = Math.sin(latitude), k = x * sindelta + z * cosdelta;
       return [ Math.atan2(y, x * cosdelta - z * sindelta), Math.asin(Math.max(-1, Math.min(1, k))) ];
     }
-    function hammer(coordinates_degrees, return_wrap) {
-      var lon = coordinates_degrees[0] * d3_geo_radians - origin[0], lat = coordinates_degrees[1] * d3_geo_radians, have_wrapped = false;
-      while (lon < -Math.PI) {
-        lon += Math.PI * 2;
-        have_wrapped = !have_wrapped;
-      }
-      while (lon > Math.PI) {
-        lon -= Math.PI * 2;
-        have_wrapped = !have_wrapped;
-      }
+    function hammer(coordinates_degrees) {
+      var lon = coordinates_degrees[0] * d3_geo_radians - origin[0], lat = coordinates_degrees[1] * d3_geo_radians;
+      while (lon < -Math.PI) lon += Math.PI * 2;
+      while (lon > Math.PI) lon -= Math.PI * 2;
       var center = rotateLatitude(lon, lat, -origin[1]), lon = center[0], lat = center[1];
-      var sqrt2 = Math.sqrt(2), clon = Math.cos(lon), slon = Math.sin(lon), clat = Math.cos(lat), slat = Math.sin(lat);
-      sin_lon_over_b = Math.sin(lon / B), cos_lon_over_b = Math.cos(lon / B), nu = Math.sqrt(1 + clat * cos_lon_over_b), x = B * sqrt2 * clat * sin_lon_over_b / nu, y = -sqrt2 * slat / nu;
-      if (return_wrap) {
-        return [ scale * .5 * x + translate[0], scale * .5 * y + translate[1], have_wrapped ];
-      } else {
-        return [ scale * .5 * x + translate[0], scale * .5 * y + translate[1] ];
-      }
+      if (B < 1.1 && Math.abs(lon) > Math.PI - Math.PI / 12) lat = 0;
+      var sqrt2 = Math.sqrt(2), clat = Math.cos(lat), slat = Math.sin(lat), sin_lon_over_b = Math.sin(lon / B), cos_lon_over_b = Math.cos(lon / B), nu = Math.sqrt(1 + clat * cos_lon_over_b), x = B * sqrt2 * clat * sin_lon_over_b / nu, y = -sqrt2 * slat / nu;
+      return [ scale * .5 * x + translate[0], scale * .5 * y + translate[1] ];
     }
     function aasin(v) {
       var ONE_TOL = 1.00000000000001;
@@ -6209,11 +6199,10 @@
     hammer.invert = function(coordinates) {
       var x = (coordinates[0] - translate[0]) / (scale * .5), y = -(coordinates[1] - translate[1]) / (scale * .5);
       var wx = x / B;
-      var EPS10 = 1e-10;
       var lon, lat;
       var z = Math.sqrt(1 - .25 * (wx * wx + y * y));
       var zz2_1 = 2 * z * z - 1;
-      if (Math.abs(zz2_1) < EPS10) {
+      if (Math.abs(zz2_1) < 1e-10) {
         lon = NaN;
         lat = NaN;
       } else {
@@ -6312,6 +6301,7 @@
           return numer / denom;
         }
       }
+      isPolygon = false;
       var projected = [], paths = {}, n = coordinates.length, i = -1;
       i = -1;
       while (++i < n) {
@@ -6320,18 +6310,18 @@
       paths[true] = [];
       paths[false] = [];
       i = -1;
-      var loopState = [ true ];
+      var loopState = true;
       while (++i < n) {
         if (i == 0) {
           paths[loopState].push(projected[i]);
           continue;
         }
-        var dlon = coordinates[i][0] - coordinates[i - 1][0], dlat = coordinates[i][1] - coordinates[i - 1][1], factor = dlat == 0 && dlon == 0 ? 1e-6 : 1e-6 / (Math.abs(dlat) > Math.abs(dlon) ? Math.abs(dlat) : Math.abs(dlon)), smallMovement = projection([ coordinates[i - 1][0] + dlon * factor, coordinates[i - 1][1] + dlat * factor ]), dx = projected[i][0] - projected[i - 1][0], dy = projected[i][1] - projected[i - 1][1], sdx = smallMovement[0] - projected[i - 1][0], sdy = smallMovement[1] - projected[i - 1][1];
-        if (cosSim([ dx, dy ], [ sdx, sdy ]) > .5 && Math.abs(dx - sdx * 1e6) < 100) {
+        var dlon = coordinates[i][0] - coordinates[i - 1][0], dlat = coordinates[i][1] - coordinates[i - 1][1], factor = dlat == 0 && dlon == 0 ? 1e-10 : 1e-10 / (Math.abs(dlat) > Math.abs(dlon) ? Math.abs(dlat) : Math.abs(dlon)), smallMovement = projection([ coordinates[i - 1][0] + dlon * factor, coordinates[i - 1][1] + dlat * factor ]), dx = projected[i][0] - projected[i - 1][0], dy = projected[i][1] - projected[i - 1][1], sdx = smallMovement[0] - projected[i - 1][0], sdy = smallMovement[1] - projected[i - 1][1], m = Math.sqrt(dx * dx + dy * dy), em = Math.sqrt(sdx * sdx + sdy * sdy) / factor;
+        if ((Math.abs(coordinates[i][0]) > 75 || cosSim([ dx, dy ], [ sdx, sdy ]) > 0) && Math.abs(Math.log(Math.abs(m) / Math.abs(em)) < 1 || Math.abs(m) < 5)) {
           paths[loopState].push(projected[i]);
         } else {
           if (isPolygon) paths[loopState].push([ "THUNK", i ]);
-          loopState = [ !loopState[0] ];
+          loopState = !loopState;
           paths[loopState].push(projected[i]);
         }
       }
@@ -6355,7 +6345,7 @@
       }
       for (loopState in paths) {
         i = -1;
-        var points = paths[true], n = points.length;
+        var points = paths[loopState], n = points.length;
         if (n > 0) {
           buffer.push("M");
           while (++i < n) {
