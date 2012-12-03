@@ -6039,10 +6039,14 @@
       return impl(coordinates_degrees, return_wrap);
     }
     var origin = [ 0, 0 ], scale = 1, width = viewport[2] - viewport[0], height = viewport[3] - viewport[1], smaller_dimension = Math.min(width, height), viewport_center = [ viewport[0] + width / 2, viewport[1] + height / 2 ];
-    var albers_conic = function(origin, scale) {
+    var albers_conic = function(origin, scale, alpha, dest_parellel) {
       var origin_degrees = [ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ];
-      var top_coord = [ viewport_center[0], viewport[1] ], bot_coord = [ viewport_center[0], viewport[3] ], top_latitude = impl.invert(top_coord)[1], bottom_latitude = impl.invert(bot_coord)[1], latitude_range = top_latitude - bottom_latitude;
-      return d3.geo.albers().parallels([ bottom_latitude + 15 * latitude_range / 100, top_latitude - 15 * latitude_range / 100 ]).origin(origin_degrees).scale(scale * smaller_dimension * .5);
+      var top_coord = [ viewport_center[0], viewport[1] ], bot_coord = [ viewport_center[0], viewport[3] ], top_latitude = impl.invert(top_coord)[1], bottom_latitude = impl.invert(bot_coord)[1], latitude_range = top_latitude - bottom_latitude, top_parellel = top_latitude - 15 * latitude_range / 100, bottom_parellel = bottom_latitude + 15 * latitude_range / 100;
+      if (typeof alpha != "undefined") {
+        top_parellel = (1 - alpha) * top_parellel + alpha * dest_parellel;
+        bottom_parellel = (1 - alpha) * bottom_parellel + alpha * dest_parellel;
+      }
+      return d3.geo.albers().parallels([ bottom_parellel, top_parellel ]).origin(origin_degrees).scale(scale * smaller_dimension * .5);
     }, hammer = function(B, origin, scale) {
       return d3.geo.hammer(B).scale(scale * smaller_dimension).origin([ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ]);
     }, lambert_azimuthal = function(origin, scale) {
@@ -6053,8 +6057,8 @@
       var merc = d3.geo.mercator().scale(scale * smaller_dimension * 3.14).translate([ -480, -250 ]);
       var origin_degrees = [ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ], tmp = merc(origin_degrees);
       return merc.translate([ -tmp[0], -tmp[1] ]);
-    }, mercator_interpolated = function(origin, scale) {
-      var impl1 = select_impl(origin, scale, true)[0], impl2 = mercator(origin, scale), alpha = (scale - 13) / 2;
+    }, mercator_interpolated = function(origin, scale, alpha) {
+      var impl1 = select_impl(origin, scale, true)[0], impl2 = mercator(origin, scale);
       var ret = function(coordinates) {
         var xy = impl1(coordinates), xy2 = impl2(coordinates);
         return [ (1 - alpha) * xy[0] + alpha * xy2[0], (1 - alpha) * xy[1] + alpha * xy2[1] ];
@@ -6065,28 +6069,36 @@
       };
       return ret;
     }, impl, impl_name = "", select_impl = function(origin, scale, dontInterpolate) {
+      var lat = Math.abs(origin[1]) * 180 / Math.PI;
       if (scale <= 1.5) {
         return [ hammer(2, origin, scale), "Hammer" ];
       } else if (scale <= 2) {
         return [ hammer(2 - (scale - 1.5) * 2, origin, scale), "Modified Hammer" ];
       } else if (scale <= 4) {
         return [ lambert_azimuthal(origin, scale), "Lambert azimuthal" ];
-      } else if (scale <= 6 && Math.abs(origin[1]) < Math.PI / 12) {
-        if (Math.abs(origin[1]) < (scale - 4) * Math.PI / 6) {
+      } else if (scale <= 6 && lat < 22) {
+        var lat2 = (scale - 4) * 15 / 2;
+        if (lat < lat2) {
           return [ lambert_cylindrical(origin, scale), "Lambert cylindrical" ];
         } else {
-          return [ albers_conic(origin, scale), "Albers conic" ];
+          return [ albers_conic(origin, scale, (22 - lat) / (22 - lat2), 0), "Albers conic with adjusted standard parellels" ];
         }
       } else if (scale <= 13 || scale < 15 && dontInterpolate) {
-        if (Math.abs(origin[1]) <= Math.PI / 12) {
+        if (lat <= 15) {
           return [ lambert_cylindrical(origin, scale), "Lambert cylindrical" ];
-        } else if (Math.abs(origin[1]) >= 5 * Math.PI / 12) {
+        } else if (lat >= 75) {
           return [ lambert_azimuthal(origin, scale), "Lambert azimuthal" ];
         } else {
-          return [ albers_conic(origin, scale), "Albers conic" ];
+          if (lat < 22) {
+            return [ albers_conic(origin, scale, (22 - lat) / (22 - 15), 0), "Albers conic with adjusted standard parellels" ];
+          } else if (lat > 60) {
+            return [ albers_conic(origin, scale, (lat - 60) / (75 - 60), 90), "Albers conic with adjusted standard parellels" ];
+          } else {
+            return [ albers_conic(origin, scale), "Albers conic" ];
+          }
         }
       } else if (scale < 15) {
-        return [ mercator_interpolated(origin, scale), "Interpolation with Mercator" ];
+        return [ mercator_interpolated(origin, scale, (scale - 13) / 2), "Interpolation with Mercator" ];
       } else {
         return [ mercator(origin, scale), "Mercator" ];
       }
@@ -6300,7 +6312,6 @@
           return numer / denom;
         }
       }
-      isPolygon = false;
       var projected = [], paths = {}, n = coordinates.length, i = -1;
       i = -1;
       while (++i < n) {
@@ -6316,7 +6327,7 @@
           continue;
         }
         var dlon = coordinates[i][0] - coordinates[i - 1][0], dlat = coordinates[i][1] - coordinates[i - 1][1], factor = dlat == 0 && dlon == 0 ? 1e-6 : 1e-6 / (Math.abs(dlat) > Math.abs(dlon) ? Math.abs(dlat) : Math.abs(dlon)), smallMovement = projection([ coordinates[i - 1][0] + dlon * factor, coordinates[i - 1][1] + dlat * factor ]), dx = projected[i][0] - projected[i - 1][0], dy = projected[i][1] - projected[i - 1][1], sdx = smallMovement[0] - projected[i - 1][0], sdy = smallMovement[1] - projected[i - 1][1];
-        if (cosSim([ dx, dy ], [ sdx, sdy ]) > .5 && Math.abs(dx - sdx * 1e6) < dx * 1e6) {
+        if (cosSim([ dx, dy ], [ sdx, sdy ]) > .5 && Math.abs(dx - sdx * 1e6) < 100) {
           paths[loopState].push(projected[i]);
         } else {
           if (isPolygon) paths[loopState].push([ "THUNK", i ]);
@@ -6331,9 +6342,9 @@
           i = -1;
           while (++i < points.length) {
             if (points[i][0] == "THUNK") {
-              var lastPoint = coordinates[points[i][1] - 1], nextPoint = projection.invert(points[(i + 1) % points.length]), j = 1;
-              for (j = 1; j <= 10; ++j) {
-                newPoints.push(projection([ (10 - j) / 10 * lastPoint[0] + j / 10 * nextPoint[0], (10 - j) / 10 * lastPoint[1] + j / 10 * nextPoint[1] ]));
+              var lastPoint = coordinates[points[i][1] - 1], nextPoint = projection.invert(points[(i + 1) % points.length]), j = 1, m = 1;
+              for (j = 1; j <= m; ++j) {
+                newPoints.push(projection([ (m - j) / m * lastPoint[0] + j / m * nextPoint[0], (m - j) / m * lastPoint[1] + j / m * nextPoint[1] ]));
               }
             } else {
               newPoints.push(points[i]);
@@ -6342,16 +6353,18 @@
           paths[loopState] = newPoints;
         }
       }
-      i = -1;
-      var points = paths[true], n = points.length;
-      if (n > 0) {
-        buffer.push("M");
-        while (++i < n) {
-          buffer.push(points[i].join(","), "L");
+      for (loopState in paths) {
+        i = -1;
+        var points = paths[true], n = points.length;
+        if (n > 0) {
+          buffer.push("M");
+          while (++i < n) {
+            buffer.push(points[i].join(","), "L");
+          }
+          buffer.pop();
         }
-        buffer.pop();
-        buffer.push("Z");
       }
+      buffer.push("Z");
     }
     function polygonArea(coordinates) {
       var sum = area(coordinates[0]), i = 0, n = coordinates.length;

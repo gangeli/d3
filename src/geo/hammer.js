@@ -40,19 +40,12 @@ d3.geo.hammer = function(B) {
     ];
   }
 
-  function hammer(coordinates_degrees, return_wrap) {
+  function hammer(coordinates_degrees) {
     // Adjust Lat/Lon
     var lon = coordinates_degrees[0] * d3_geo_radians - origin[0],
-        lat = coordinates_degrees[1] * d3_geo_radians,
-        have_wrapped = false;
-    while (lon < -Math.PI) {
-      lon += Math.PI * 2.0;
-      have_wrapped = !have_wrapped;
-    }
-    while (lon > Math.PI) {
-      lon -= Math.PI * 2.0;
-      have_wrapped = !have_wrapped;
-    }
+        lat = coordinates_degrees[1] * d3_geo_radians;
+    while (lon < -Math.PI) lon += Math.PI * 2.0;
+    while (lon > Math.PI) lon -= Math.PI * 2.0;
     var center = rotateLatitude(lon, lat, -origin[1]),
         lon = center[0],
         lat = center[1];
@@ -67,18 +60,10 @@ d3.geo.hammer = function(B) {
         nu = Math.sqrt(1 + clat * cos_lon_over_b),
         x = B * sqrt2 * clat * sin_lon_over_b / nu,
         y = - sqrt2 * slat / nu;
-    if( return_wrap ) {
-      return [
-        scale * 0.5 * x + translate[0],
-        scale * 0.5 * y + translate[1],
-        have_wrapped
-      ];
-    } else {
-      return [
-        scale * 0.5 * x + translate[0],
-        scale * 0.5 * y + translate[1]
-      ];
-    }
+    return [
+      scale * 0.5 * x + translate[0],
+      scale * 0.5 * y + translate[1]
+    ];
   }
   
   function aasin(v) {
@@ -102,11 +87,10 @@ d3.geo.hammer = function(B) {
     var x = (coordinates[0] - translate[0]) / (scale * 0.5),
     y = -(coordinates[1] - translate[1]) / (scale * 0.5);
     var wx = x / B;
-    var EPS10 = 1.e-10;
     var lon, lat;
     var z = Math.sqrt(1 - 0.25 * (wx * wx + y * y));
     var zz2_1 = 2 * z * z - 1;
-    if(Math.abs(zz2_1) < EPS10) {
+    if(Math.abs(zz2_1) < 1e-10) {
       lon = NaN;
       lat = NaN;
     } else {

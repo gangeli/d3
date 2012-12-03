@@ -25,6 +25,7 @@ d3.geo.path = function() {
    * polygon wraps around the edge of the map.
    */
   function projectPath(buffer, coordinates, isPolygon) {
+    isPolygon = false;
     var projected = [],
         paths = {},
         n = coordinates.length,
@@ -38,7 +39,7 @@ d3.geo.path = function() {
     paths[true]   = []
     paths[false]  = []
     i = -1;
-    var loopState = [true];
+    var loopState = true;
     function cosSim(empirical, expected) {
       var numer = empirical[0] * expected[0] + empirical[1] * expected[1],
           denom = Math.sqrt(empirical[0]*empirical[0] + empirical[1]*empirical[1]) *
@@ -58,18 +59,24 @@ d3.geo.path = function() {
       }
       var dlon = coordinates[i][0] - coordinates[i-1][0],
           dlat = coordinates[i][1] - coordinates[i-1][1],
-          factor = (dlat == 0 && dlon == 0) ? 1e-6 : 1e-6 / (Math.abs(dlat) > Math.abs(dlon) ? Math.abs(dlat) : Math.abs(dlon) ),
+          factor = (dlat == 0 && dlon == 0) ? 1e-10 : 1e-10 / (Math.abs(dlat) > Math.abs(dlon) ? Math.abs(dlat) : Math.abs(dlon) ),
           smallMovement = projection([coordinates[i-1][0] + dlon * factor,
                                       coordinates[i-1][1] + dlat * factor]),
           dx = projected[i][0] - projected[i-1][0],
           dy = projected[i][1] - projected[i-1][1],
           sdx = smallMovement[0] - projected[i-1][0],
-          sdy = smallMovement[1] - projected[i-1][1];
-      if (cosSim([dx,dy], [sdx,sdy]) > 0.5 && Math.abs(dx - sdx * 1e6) < 100) {
+          sdy = smallMovement[1] - projected[i-1][1],
+          m  = Math.sqrt(dx*dx + dy*dy),
+          em = Math.sqrt(sdx*sdx + sdy*sdy) / factor;
+      // The vector is pointing the same way as expected, and is either
+      // roughly the right magnitude, or less than 5 pixels total (we start
+      // to lose precision with vectors that small).
+      if ((Math.abs(coordinates[i][0]) > 75 || cosSim([dx,dy], [sdx,sdy]) > 0.0) &&
+          (Math.abs(Math.log(Math.abs(m) / Math.abs(em)) < 1 || Math.abs(m) < 5))) {
         paths[loopState].push( projected[i] );
       } else {
         if (isPolygon) paths[loopState].push(["THUNK", i]);
-        loopState = [!loopState[0]];
+        loopState = !loopState;
         paths[loopState].push( projected[i] );
       }
     }
@@ -84,11 +91,12 @@ d3.geo.path = function() {
           if (points[i][0] == "THUNK") {
             var lastPoint = coordinates[points[i][1] - 1],
                 nextPoint = projection.invert(points[(i + 1) % points.length]),
-                j = 1;
-            for (j = 1; j <= 10; ++j) {
+                j = 1,
+                m = 1;
+            for (j = 1; j <= m; ++j) {
               newPoints.push( projection(
-                [(10 - j) / 10 * lastPoint[0] + j / 10 * nextPoint[0],
-                 (10 - j) / 10 * lastPoint[1] + j / 10 * nextPoint[1]]));
+                [(m - j) / m * lastPoint[0] + j / m * nextPoint[0],
+                 (m - j) / m * lastPoint[1] + j / m * nextPoint[1]]));
             }
           } else {
             newPoints.push(points[i]);
@@ -100,7 +108,7 @@ d3.geo.path = function() {
     // Step 4: fill buffer
     for (loopState in paths) {
       i = -1;
-      var points = paths[true],
+      var points = paths[loopState],
           n = points.length;
       if (n > 0) {
         buffer.push("M")
@@ -108,9 +116,9 @@ d3.geo.path = function() {
           buffer.push(points[i].join(","), "L");
         }
         buffer.pop();
-        buffer.push("Z");
       }
     }
+    buffer.push("Z");
   }
 
   var pathType = d3_geo_type({
