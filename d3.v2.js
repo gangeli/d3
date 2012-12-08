@@ -6175,7 +6175,6 @@
       while (lon < -Math.PI) lon += Math.PI * 2;
       while (lon > Math.PI) lon -= Math.PI * 2;
       var center = rotateLatitude(lon, lat, -origin[1]), lon = center[0], lat = center[1];
-      if (B < 1.1 && Math.abs(lon) > Math.PI - Math.PI / 12) lat = 0;
       var sqrt2 = Math.sqrt(2), clat = Math.cos(lat), slat = Math.sin(lat), sin_lon_over_b = Math.sin(lon / B), cos_lon_over_b = Math.cos(lon / B), nu = Math.sqrt(1 + clat * cos_lon_over_b), x = B * sqrt2 * clat * sin_lon_over_b / nu, y = -sqrt2 * slat / nu;
       return [ scale * .5 * x + translate[0], scale * .5 * y + translate[1] ];
     }
@@ -6291,67 +6290,33 @@
       return result;
     }
     function projectPath(buffer, coordinates, isPolygon) {
-      function cosSim(empirical, expected) {
-        var numer = empirical[0] * expected[0] + empirical[1] * expected[1], denom = Math.sqrt(empirical[0] * empirical[0] + empirical[1] * empirical[1]) * Math.sqrt(expected[0] * expected[0] + expected[1] * expected[1]);
-        if (denom == 0) {
-          return 0;
-        } else if (empirical[0] == 0 && empirical[1] == 0 || expected[0] == 0 && expected[1] == 0) {
-          return Math.PI;
-        } else {
-          return numer / denom;
-        }
-      }
-      isPolygon = false;
-      var projected = [], paths = {}, n = coordinates.length, i = -1;
+      var projected = [], n = coordinates.length, i = -1, minDist = 25, maxRecursion = 2;
       i = -1;
       while (++i < n) {
         projected[i] = projection(coordinates[i]);
       }
-      paths[true] = [];
-      paths[false] = [];
-      i = -1;
-      var loopState = true;
-      while (++i < n) {
-        if (i == 0) {
-          paths[loopState].push(projected[i]);
-          continue;
-        }
-        var dlon = coordinates[i][0] - coordinates[i - 1][0], dlat = coordinates[i][1] - coordinates[i - 1][1], factor = dlat == 0 && dlon == 0 ? 1e-10 : 1e-10 / (Math.abs(dlat) > Math.abs(dlon) ? Math.abs(dlat) : Math.abs(dlon)), smallMovement = projection([ coordinates[i - 1][0] + dlon * factor, coordinates[i - 1][1] + dlat * factor ]), dx = projected[i][0] - projected[i - 1][0], dy = projected[i][1] - projected[i - 1][1], sdx = smallMovement[0] - projected[i - 1][0], sdy = smallMovement[1] - projected[i - 1][1], m = Math.sqrt(dx * dx + dy * dy), em = Math.sqrt(sdx * sdx + sdy * sdy) / factor;
-        if ((Math.abs(coordinates[i][0]) > 75 || cosSim([ dx, dy ], [ sdx, sdy ]) > 0) && Math.abs(Math.log(Math.abs(m) / Math.abs(em)) < 1 || Math.abs(m) < 5)) {
-          paths[loopState].push(projected[i]);
-        } else {
-          if (isPolygon) paths[loopState].push([ "THUNK", i ]);
-          loopState = !loopState;
-          paths[loopState].push(projected[i]);
-        }
-      }
-      if (isPolygon) {
-        for (loopState in paths) {
-          var points = paths[loopState], newPoints = [];
-          paths[loopState] = [];
-          i = -1;
-          while (++i < points.length) {
-            if (points[i][0] == "THUNK") {
-              var lastPoint = coordinates[points[i][1] - 1], nextPoint = projection.invert(points[(i + 1) % points.length]), j = 1, m = 1;
-              for (j = 1; j <= m; ++j) {
-                newPoints.push(projection([ (m - j) / m * lastPoint[0] + j / m * nextPoint[0], (m - j) / m * lastPoint[1] + j / m * nextPoint[1] ]));
+      if (n > 0) {
+        buffer.push("M", projected[0].join(","));
+        while (++i < n) {
+          function interpolate(a, b, origA, origB, depth) {
+            var dist = normdiff(a, b);
+            if (depth > maxRecursion) {
+              console.log("Depth exceeded");
+              buffer.push("M", b.join(","));
+            } else if (dist > minDist) {
+              var k = 1, last = a, lastOrig = origA;
+              while (k * minDist < dist) {
+                var interpolated = [ k * minDist / dist * origA[0] + (1 - k * minDist / dist) * origB[0], k * minDist / dist * origA[1] + (1 - k * minDist / dist) * origB[1] ], projected = projection(interpolated);
+                interpolate(last, projected, lastOrig, interpolated, depth + 1);
+                k += 1;
+                last = projected;
+                lastOrig = interpolated;
               }
             } else {
-              newPoints.push(points[i]);
+              buffer.push("L", b.join(","));
             }
           }
-          paths[loopState] = newPoints;
-        }
-      }
-      for (loopState in paths) {
-        i = -1;
-        var points = paths[loopState], n = points.length;
-        if (n > 0) {
-          buffer.push("M");
-          while (++i < n) {
-            buffer.push(points[i].join(","), "L");
-          }
-          buffer.pop();
+          interpolate(projected[i - 1], projected[i], coordinates[i - 1], coordinates[i], 0);
         }
       }
       buffer.push("Z");

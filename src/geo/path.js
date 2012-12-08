@@ -25,21 +25,15 @@ d3.geo.path = function() {
    * polygon wraps around the edge of the map.
    */
   function projectPath(buffer, coordinates, isPolygon) {
+    // Variables and helpers
     var projected = [],
-        paths = {},
-        reverse = {},
         n = coordinates.length,
-        i = -1;
-    // Step 1: get projection
-    i = -1;
-    while (++i < n) {
-      projected[i] = projection(coordinates[i]);
+        i = -1,
+        // (interpolation parameters)
+        magnitudeMargin = 5.0;
+    function normdiff(v1, v2) {
+      return Math.sqrt((v1[0]-v2[0])*(v1[0]-v2[0]) + (v1[1]-v2[1])*(v1[1]-v2[1]));
     }
-    // Step 2: split into independent paths
-    paths[true]   = []; reverse[true] = [];
-    paths[false]  = []; reverse[false] = [];
-    i = -1;
-    var loopState = true;
     function cosSim(empirical, expected) {
       var numer = empirical[0] * expected[0] + empirical[1] * expected[1],
           denom = Math.sqrt(empirical[0]*empirical[0] + empirical[1]*empirical[1]) *
@@ -52,75 +46,63 @@ d3.geo.path = function() {
         return numer / denom;
       }
     }
-    function normdiff(v1, v2) {
-      return Math.sqrt((v1[0]-v2[0])*(v1[0]-v2[0]) + (v1[1]-v2[1])*(v1[1]-v2[1]));
+    function cosSimDiff(aStart, aEnd, bStart, bEnd) {
+      return cosSim( [aEnd[0] - aStart[0], aEnd[1] - aStart[1]],
+                     [bEnd[0] - bStart[0], bEnd[1] - bStart[1]] );
+                     
     }
+    // Get projection
+    i = -1;
     while (++i < n) {
-      if (i == 0) {
-        reverse[loopState].push( coordinates[i] );
-        paths[loopState].push( projected[i] );
-        continue;
-      }
-      var dlon = coordinates[i][0] - coordinates[i-1][0],
-          dlat = coordinates[i][1] - coordinates[i-1][1],
-          factor = (dlat == 0 && dlon == 0) ? 1e-10 : 1e-10 / (Math.abs(dlat) > Math.abs(dlon) ? Math.abs(dlat) : Math.abs(dlon) ),
-          smallMovement = projection([coordinates[i-1][0] + dlon * factor,
-                                      coordinates[i-1][1] + dlat * factor]),
-          dx = projected[i][0] - projected[i-1][0],
-          dy = projected[i][1] - projected[i-1][1],
-          sdx = smallMovement[0] - projected[i-1][0],
-          sdy = smallMovement[1] - projected[i-1][1],
-          m  = Math.sqrt(dx*dx + dy*dy),
-          em = Math.sqrt(sdx*sdx + sdy*sdy) / factor;
-      // The vector is pointing the same way as expected, and is either
-      // roughly the right magnitude, or less than 5 pixels total (we start
-      // to lose precision with vectors that small).
-      if ((Math.abs(coordinates[i][0]) > 75 || cosSim([dx,dy], [sdx,sdy]) > 0.5) &&
-          (Math.abs(Math.log(Math.abs(m) / Math.abs(em)) < 1 || Math.abs(m) < 5))) {
-        reverse[loopState].push( coordinates[i] );
-        paths[loopState].push( projected[i] );
-      } else {
-        loopState = !loopState;
-        reverse[loopState].push( coordinates[i] );
-        paths[loopState].push( projected[i] );
-      }
+      projected[i] = projection(coordinates[i]);
     }
-    // Step 4: fill buffer
-    for (loopState in paths) {
+    // Fill buffer
+    var trees = [];
+    if (n > 0) {
       i = 0;
-      var points = paths[loopState],
-          rev = reverse[loopState],
-          n = points.length;
-      if (n > 0) {
-        buffer.push("M", points[0].join(","))
-        while (++i < n) {
-          var minDist = 25;
-          function interpolate(a, b, origA, origB, depth) {
-            var dist = normdiff(a, b);
-            if (depth > 2) {
-              buffer.push("M", b.join(","));
-            } else if (dist > minDist) {
-              var k = 1,
-                  last = a,
-                  lastOrig = origA;
-              while (k * minDist < dist) {
-                var interpolated = [(k * minDist / dist) * origA[0] + (1.0 - k * minDist / dist) * origB[0],
-                                    (k * minDist / dist) * origA[1] + (1.0 - k * minDist / dist) * origB[1]],
-                    projected = projection(interpolated);
-                interpolate(last, projected, lastOrig, interpolated, depth + 1);
-                k += 1;
-                last = projected;
-                lastOrig = interpolated;
-              }
-            } else {
+      while (++i < (isPolygon ? n + 1 : n)) {
+        function interpolate(a, b, origA, origB, depth,
+                             expectedMagnitude, parentVector) {
+          var midpoint = [(origA[0] + origB[0]) / 2.0, (origA[1] + origB[1]) / 2.0],
+              projectedMidpoint = projection(midpoint),
+              a2midpoint = normdiff(a, projectedMidpoint),
+              midpoint2b = normdiff(projectedMidpoint, b),
+              norm       = normdiff(a, b),
+              tree = {};
+          if (norm < 50) {
+            tree.render = function(){
               buffer.push("L", b.join(","));
             }
+          } else if (midpoint2b > a2midpoint * magnitudeMargin) {
+            var leftChild = interpolate(a, projectedMidpoint,
+                                        origA, midpoint,
+                                        depth + 1);
+            tree.render = function(){
+              leftChild.render();
+              buffer.push("M", b.join(","));
+            }
+          } else {
+            var leftChild = interpolate(a, projectedMidpoint,
+                                        origA, midpoint,
+                                        depth + 1),
+                rightChild = interpolate(projectedMidpoint, b,
+                                        midpoint, origB,
+                                        depth + 1);
+            tree.render = function(){
+              leftChild.render();
+              rightChild.render();
+            }
           }
-          interpolate(points[i-1], points[i], rev[i-1], rev[i], 0);
-        }
-      }
-    }
-    buffer.push("Z");
+          return tree;
+        }   // close interpolate
+        var path = interpolate(projected[i-1], projected[i % n],
+                    coordinates[i-1], coordinates[i % n],
+                    0);
+        trees.push(path);
+      }     //  close while
+    }       //  close if
+    buffer.push("M", projected[0].join(","))
+    for (var i = 0; i < trees.length; ++i) { trees[i].render(); }
   }
 
   var pathType = d3_geo_type({
@@ -129,7 +111,7 @@ d3.geo.path = function() {
       var features = o.features,
           i = -1, // features.index
           n = features.length;
-      while (++i < n) buffer.push(pathType(features[i].geometry));
+//      while (++i < n) buffer.push(pathType(features[i].geometry));
     },
 
     Feature: function(o) {
@@ -137,14 +119,14 @@ d3.geo.path = function() {
     },
 
     Point: function(o) {
-      buffer.push("M", projection(o.coordinates).join(","), pointCircle);
+//      buffer.push("M", projection(o.coordinates).join(","), pointCircle);
     },
 
     MultiPoint: function(o) {
       var coordinates = o.coordinates,
           i = -1, // coordinates.index
           n = coordinates.length;
-      while (++i < n) buffer.push("M", projection(coordinates[i]).join(","), pointCircle);
+//      while (++i < n) buffer.push("M", projection(coordinates[i]).join(","), pointCircle);
     },
 
     LineString: function(o) {
@@ -210,7 +192,7 @@ d3.geo.path = function() {
       var geometries = o.geometries,
           i = -1, // geometries index
           n = geometries.length;
-      while (++i < n) buffer.push(pathType(geometries[i]));
+//      while (++i < n) buffer.push(pathType(geometries[i]));
     }
 
   });
