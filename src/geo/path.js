@@ -30,26 +30,10 @@ d3.geo.path = function() {
         n = coordinates.length,
         i = -1,
         // (interpolation parameters)
-        magnitudeMargin = 5.0;
+        acceptableLength = 25,
+        magnitudeMargin = 2.0;
     function normdiff(v1, v2) {
       return Math.sqrt((v1[0]-v2[0])*(v1[0]-v2[0]) + (v1[1]-v2[1])*(v1[1]-v2[1]));
-    }
-    function cosSim(empirical, expected) {
-      var numer = empirical[0] * expected[0] + empirical[1] * expected[1],
-          denom = Math.sqrt(empirical[0]*empirical[0] + empirical[1]*empirical[1]) *
-                  Math.sqrt(expected[0]*expected[0] + expected[1]*expected[1]);
-      if (denom == 0) {
-        return 0;
-      } else if ((empirical[0] == 0 && empirical[1] == 0) || (expected[0] == 0 && expected[1] == 0)) {
-        return Math.PI;
-      } else {
-        return numer / denom;
-      }
-    }
-    function cosSimDiff(aStart, aEnd, bStart, bEnd) {
-      return cosSim( [aEnd[0] - aStart[0], aEnd[1] - aStart[1]],
-                     [bEnd[0] - bStart[0], bEnd[1] - bStart[1]] );
-                     
     }
     // Get projection
     i = -1;
@@ -60,7 +44,7 @@ d3.geo.path = function() {
     var trees = [];
     if (n > 0) {
       i = 0;
-      while (++i < (isPolygon ? n + 1 : n)) {
+      while (++i < n) {
         function interpolate(a, b, origA, origB, depth,
                              expectedMagnitude, parentVector) {
           var midpoint = [(origA[0] + origB[0]) / 2.0, (origA[1] + origB[1]) / 2.0],
@@ -69,11 +53,15 @@ d3.geo.path = function() {
               midpoint2b = normdiff(projectedMidpoint, b),
               norm       = normdiff(a, b),
               tree = {};
-          if (norm < 50) {
+          tree.left = a;
+          tree.right = b;
+          if (norm < acceptableLength) {
             tree.render = function(){
               buffer.push("L", b.join(","));
             }
-          } else if (midpoint2b > a2midpoint * magnitudeMargin) {
+            tree.yield = function(lst) { lst.push(b); }
+            tree.yieldCount = 1;
+          } else if (midpoint2b > Math.pow(a2midpoint, magnitudeMargin)) {
             var leftChild = interpolate(a, projectedMidpoint,
                                         origA, midpoint,
                                         depth + 1);
@@ -81,6 +69,9 @@ d3.geo.path = function() {
               leftChild.render();
               buffer.push("M", b.join(","));
             }
+            tree.left = leftChild.left;
+            tree.yield = function(lst) { leftChild.yield(lst); lst.push(b); }
+            tree.yieldCount = leftChild.yieldCount + 1;
           } else {
             var leftChild = interpolate(a, projectedMidpoint,
                                         origA, midpoint,
@@ -92,17 +83,23 @@ d3.geo.path = function() {
               leftChild.render();
               rightChild.render();
             }
+            tree.left = leftChild.left;
+            tree.right = rightChild.right;
+            tree.yield = function(lst) { leftChild.yield(lst); rightChild.yield(lst); }
+            tree.yieldCount = leftChild.yieldCount + rightChild.yieldCount;
           }
           return tree;
         }   // close interpolate
-        var path = interpolate(projected[i-1], projected[i % n],
-                    coordinates[i-1], coordinates[i % n],
+        // Draw points
+        var path = interpolate(projected[i-1], projected[i],
+                    coordinates[i-1], coordinates[i],
                     0);
         trees.push(path);
       }     //  close while
     }       //  close if
     buffer.push("M", projected[0].join(","))
     for (var i = 0; i < trees.length; ++i) { trees[i].render(); }
+    buffer.push("Z");
   }
 
   var pathType = d3_geo_type({
