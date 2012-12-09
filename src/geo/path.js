@@ -35,7 +35,7 @@ d3.geo.path = function() {
         midpoint2b = normdiff(projectedMidpoint, b),
         norm       = normdiff(a, b),
         tree = {};
-    if (norm < acceptableLength || depth > 10) {
+    if (norm < acceptableLength || depth > 20) {
       tree.render = function(){
         buffer.push("L", b.join(","));
       }
