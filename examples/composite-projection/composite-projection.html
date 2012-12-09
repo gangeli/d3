@@ -25,15 +25,20 @@ svg {
   width: 960px;
   height: 500px;
   border: solid 1px #000;
-  background: #eee;
+  background: rgb(165, 191, 221);
 }
 
 #states path {
-  fill: #888;
-  stroke: #fff;
+  fill: #f4f3f0;
+  stroke: #999;
 }
 
 #states circle {
+  fill: #fcc;
+  stroke: #000;
+}
+
+#cities circle {
   fill: #fcc;
   stroke: #000;
 }
@@ -47,10 +52,15 @@ svg {
   stroke-width: 2px;
 }
 
+svg text {
+  font-size: 12px;
+  ty: 40px;
+}
+
 
 #states2 path {
-  fill: #888;
-  stroke: #fff;
+  fill: #f4f3f0;
+  stroke: #999;
 }
 
 #states2 circle {
@@ -84,66 +94,87 @@ table td:nth-child(2) {
 <script type="text/javascript">
 
 var width = 960,
-    height = 500;
+    height = 500,
+    showsCountries = true,
+    showsGraticules = true,
+    showsCities = false;
 
 // Our projection.
 var xy = d3.geo.composite([0, 0, width, height]),
     path = d3.geo.path().projection(xy);
 
-var svg = d3.select("body")
+var localSVG = d3.select("body")
   .append("svg")
     .attr("id", "map")
     .style("position", "relative");
 
-var states = svg.append("g")
+var localStates = localSVG.append("g")
     .attr("id", "states");
 
-var svg2 = d3.select("body")
+var localCities = localSVG.append("g")
+    .attr("id", "cities");
+
+var globalSVG = d3.select("body")
   .append("svg")
     .attr("id", "map2")
     .style("position", "relative");
 
-var svg2g = svg2.append("g");
+var svg2g = globalSVG.append("g");
 
-var states2 = svg2g.append("g")
+var globalStates = svg2g.append("g")
     .attr("id", "states2");
 
 d3.json("../data/world-countries.json", function(collection) {
-  states
+  localStates
     .selectAll("path")
       .data(collection.features)
     .enter().append("path")
       .attr("d", path);
-  states
-    .append("circle")
-      .attr("r", 10)
-      .attr("transform", "translate(" + xy(xy.origin()).join(",") + ")");
+//  localStates
+//    .append("circle")
+//      .attr("r", 10)
+//      .attr("transform", "translate(" + xy(xy.origin()).join(",") + ")");
+  
+  
+  d3.json("cities.json", function(collection) {
+    localCities
+      .selectAll("circle")
+        .data(collection)
+      .enter().append("circle")
+        .attr("r", 3)
+        .attr("transform", function(e) {
+          return "translate(" + xy(e.coordinates).join(",") + ")";
+        });
+    localCities
+      .selectAll("text")
+        .data(collection)
+      .enter().append("text")
+        .text(function(e) {
+          return e.name;
+        })
+        .attr("transform", function(e) {
+          return "translate(" + xy(e.coordinates).join(",") + ")";
+        });
+  });
 
-  states2
+  globalStates
     .selectAll("path")
       .data(collection.features)
     .enter().append("path")
       .attr("d", path);
 });
 
-//var graticule = d3.geo.graticule()
-//  .step([20, 20]);
-//
-//var graticules = svg.append("g");
-//
-//if (1)
-//graticules
-//  .append("path")
-//    .datum(graticule)
-//    .attr("class", "graticule line")
-//    .attr("d", path);
-//
-//if (0)
-//graticules
-//  .append("path")
-//    .datum(graticule.outline)
-//    .attr("class", "graticule outline")
-//    .attr("d", path);
+var graticule = d3.geo.graticule()
+  .step([20, 20]);
+
+var localGraticules = localSVG.append("g");
+
+if (1)
+localGraticules
+  .append("path")
+    .datum(graticule)
+    .attr("class", "graticule line")
+    .attr("d", path);
 
 
 var viewport = svg2g.append("rect")
@@ -153,15 +184,15 @@ var viewport = svg2g.append("rect")
   .attr("width", width)
   .attr("height", height);
   
-//var graticules2 = svg2g.append("g");
-//
-//graticules2
-//  .append("path")
-//    .datum(graticule)
-//    .attr("class", "graticule line")
-//    .attr("d", path);
+var globalGraticules = svg2g.append("g");
 
-var projectionName = svg2.append("text")
+globalGraticules
+  .append("path")
+    .datum(graticule)
+    .attr("class", "graticule line")
+    .attr("d", path);
+
+var projectionName = globalSVG.append("text")
     .attr("id", "projectionname")
     .text(xy.projectionName())
     .attr("x", width - 20)
@@ -170,30 +201,48 @@ var projectionName = svg2.append("text")
 
 
 function refresh() {
-  states.selectAll("path")
+  if (showsCountries) {
+    localStates.selectAll("path")
       .attr("d", path);
-//  graticules.selectAll("path")
-//      .attr("d", path);
-  states.select("circle")
-      .attr("transform", "translate(" + xy(xy.origin()).join(",") + ")")
+  }
+  localGraticules.selectAll("path")
+      .attr("d", path);
+  //localStates.select("circle")
+  //    .attr("transform", "translate(" + xy(xy.origin()).join(",") + ")")
+  if (showsCities) {
+    localCities
+      .selectAll("circle")
+      .attr("transform", function(e) {
+        return "translate(" + xy(e.coordinates).join(",") + ")";
+      });
+    localCities
+      .selectAll("text")
+        .attr("transform", function(e) {
+          return "translate(" + xy(e.coordinates).join(",") + ")";
+        });
+  }
   d3.select("#lon span")
       .text(xy.origin()[0]);
   d3.select("#lat span")
       .text(xy.origin()[1]);
   d3.select("#scale span")
       .text(xy.scale());
-  states2.selectAll("path")
+      
+  if (showsCountries) {
+    globalStates.selectAll("path")
       .attr("d", path);
+  }
 
   svg2g.attr("transform",
     "translate(" + (width/2) + "," + (height/2) + ")" +
     "scale(" + (1/xy.scale() * 0.6) + ")" +
     "translate(" + (-width/2) + "," + (-height/2) + ")"
     );
-//  graticules2.selectAll("path")
-//    .attr("d", path)
-//    .attr("stroke-width", xy.scale() / 0.6)
-//    ;
+  globalStates.selectAll("path")
+    .attr("stroke-width", xy.scale() / 0.6);
+  globalGraticules.selectAll("path")
+    .attr("d", path)
+    .attr("stroke-width", xy.scale() / 0.6);
   viewport.attr("stroke-width", xy.scale() / 0.6 * 1.4);
   projectionName.text(xy.projectionName());
 }
@@ -229,8 +278,8 @@ document.addEventListener("mouseup", function(e) {
 var mousewheel = function (e) {
   var delta = e.wheelDelta ? e.wheelDelta : e.detail,
       scale = xy.scale() + delta / 1000;
-  if (scale < 0.1)
-    scale = 0.1;
+  if (scale < 0.5)
+    scale = 0.5;
   xy.scale(scale);
   refresh();
   e.preventDefault();
@@ -239,6 +288,58 @@ var mousewheel = function (e) {
 map.addEventListener(map.hasOwnProperty("onmousewheel") ?
   "mousewheel" : "DOMMouseScroll", mousewheel);
 </script><br><br>
+
+
+
+<form>
+<label><input type="checkbox" id="graticules-box"> Graticules</label><br>
+<label><input type="checkbox" id="countries-box"> Countries</label><br>
+<label><input type="checkbox" id="cities-box"> Cities</label>
+</form>
+
+
+
+<script type="text/javascript">
+
+$("#graticules-box").change(function(e) {
+  showsGraticules = this.checked;
+   if (showsGraticules) {
+    localGraticules.attr("display", null);
+    globalGraticules.attr("display", null);
+  } else {
+    localGraticules.attr("display", "none");
+    globalGraticules.attr("display", "none");
+  }
+});
+
+$("#countries-box").change(function(e) {
+  showsCountries = this.checked;
+  if (showsCountries) {
+    localStates.attr("display", null);
+    globalStates.attr("display", null);
+  } else {
+    localStates.attr("display", "none");
+    globalStates.attr("display", "none");
+  }
+});
+
+$("#cities-box").change(function(e) {
+  showsCities = this.checked;
+  if (showsCities) {
+    localCities.attr("display", null);
+  } else {
+    localCities.attr("display", "none");
+  }
+});
+
+if (showsGraticules)
+  $("#graticules-box").attr('checked', 'checked');
+if (showsCountries)
+  $("#countries-box").attr('checked', 'checked');
+if (showsCities)
+  $("#cities-box").attr('checked', 'checked');
+
+</script>
 
 <table cellpadding="0" cellspacing="0">
   <tr>

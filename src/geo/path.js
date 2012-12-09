@@ -19,6 +19,48 @@ d3.geo.path = function() {
     buffer = [];
     return result;
   }
+  
+  function normdiff(v1, v2) {
+    return Math.sqrt((v1[0]-v2[0])*(v1[0]-v2[0]) + (v1[1]-v2[1])*(v1[1]-v2[1]));
+  }
+  
+  // (interpolation parameters)
+  var acceptableLength = 50,
+      magnitudeMargin = 2.0;
+  
+  function interpolate(a, b, origA, origB, depth) {
+    var midpoint = [(origA[0] + origB[0]) / 2.0, (origA[1] + origB[1]) / 2.0],
+        projectedMidpoint = projection(midpoint),
+        a2midpoint = normdiff(a, projectedMidpoint),
+        midpoint2b = normdiff(projectedMidpoint, b),
+        norm       = normdiff(a, b),
+        tree = {};
+    if (norm < acceptableLength || depth > 10) {
+      tree.render = function(){
+        buffer.push("L", b.join(","));
+      }
+    } else if (midpoint2b > Math.pow(a2midpoint, magnitudeMargin)) {
+      var leftChild = interpolate(a, projectedMidpoint,
+                                  origA, midpoint,
+                                  depth + 1);
+      tree.render = function(){
+        leftChild.render();
+        buffer.push("M", b.join(","));
+      }
+    } else {
+      var leftChild = interpolate(a, projectedMidpoint,
+                                  origA, midpoint,
+                                  depth + 1),
+          rightChild = interpolate(projectedMidpoint, b,
+                                  midpoint, origB,
+                                  depth + 1);
+      tree.render = function(){
+        leftChild.render();
+        rightChild.render();
+      }
+    }
+    return tree;
+  }
 
   /*
    * Project a path onto the map, taking into account whether or not the
@@ -28,13 +70,8 @@ d3.geo.path = function() {
     // Variables and helpers
     var projected = [],
         n = coordinates.length,
-        i = -1,
-        // (interpolation parameters)
-        acceptableLength = 50,
-        magnitudeMargin = 2.0;
-    function normdiff(v1, v2) {
-      return Math.sqrt((v1[0]-v2[0])*(v1[0]-v2[0]) + (v1[1]-v2[1])*(v1[1]-v2[1]));
-    }
+        i;
+    
     // Get projection
     i = -1;
     while (++i < n) {
@@ -47,7 +84,8 @@ d3.geo.path = function() {
       for (var i = 1; i < projected.length; ++i) {
         buffer.push("L", projected[i].join(","));
       }
-      buffer.push("Z");
+      if (isPolygon)
+        buffer.push("Z");
       return;
     }
     if (projection.validatePath != undefined &&
@@ -60,45 +98,6 @@ d3.geo.path = function() {
     if (n > 0) {
       i = 0;
       while (++i < n) {
-        function interpolate(a, b, origA, origB, depth,
-                             expectedMagnitude, parentVector) {
-          var midpoint = [(origA[0] + origB[0]) / 2.0, (origA[1] + origB[1]) / 2.0],
-              projectedMidpoint = projection(midpoint),
-              a2midpoint = normdiff(a, projectedMidpoint),
-              midpoint2b = normdiff(projectedMidpoint, b),
-              norm       = normdiff(a, b),
-              tree = {};
-          tree.left = a;
-          tree.right = b;
-          if (norm < acceptableLength || depth > 10) {
-            tree.render = function(){
-              buffer.push("L", b.join(","));
-            }
-          } else if (midpoint2b > Math.pow(a2midpoint, magnitudeMargin)) {
-            var leftChild = interpolate(a, projectedMidpoint,
-                                        origA, midpoint,
-                                        depth + 1);
-            tree.render = function(){
-              leftChild.render();
-              buffer.push("M", b.join(","));
-            }
-            tree.left = leftChild.left;
-          } else {
-            var leftChild = interpolate(a, projectedMidpoint,
-                                        origA, midpoint,
-                                        depth + 1),
-                rightChild = interpolate(projectedMidpoint, b,
-                                        midpoint, origB,
-                                        depth + 1);
-            tree.render = function(){
-              leftChild.render();
-              rightChild.render();
-            }
-            tree.left = leftChild.left;
-            tree.right = rightChild.right;
-          }
-          return tree;
-        }   // close interpolate
         // Draw points
         var path = interpolate(projected[i-1], projected[i],
                     coordinates[i-1], coordinates[i],
@@ -107,8 +106,10 @@ d3.geo.path = function() {
       }     //  close while
     }       //  close if
     buffer.push("M", projected[0].join(","))
-    for (var i = 0; i < trees.length; ++i) { trees[i].render(); }
-    buffer.push("Z");
+    for (var i = 0; i < trees.length; ++i)
+      trees[i].render();
+    if (isPolygon)
+      buffer.push("Z");
   }
 
   var pathType = d3_geo_type({
