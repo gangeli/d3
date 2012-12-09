@@ -106,7 +106,7 @@ d3.geo.composite = function(viewport) {
                return [albers_conic(origin, scale, (22 - lat) / (22 - 15), 0),
                  "Albers conic with adjusted standard parallels"];
              } else if (lat > 60) {
-               return [albers_conic(origin, scale, (lat - 60) / (75 - 60), 90),
+               return [albers_conic(origin, scale, (lat - 60) / (75 - 60), (origin[1] > 0) ? 90 : -90),
                  "Albers conic with adjusted standard parallels"];
              } else {
                return [albers_conic(origin, scale), "Albers conic"];
