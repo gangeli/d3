@@ -55,8 +55,10 @@ d3.geo.hammer = function(B) {
         slat = Math.sin(lat),
         sin_lon_over_b = Math.sin(lon / B),
         cos_lon_over_b = Math.cos(lon / B),
-        nu = Math.sqrt(1 + clat * cos_lon_over_b),
-        x = B * sqrt2 * clat * sin_lon_over_b / nu,
+        nu = Math.sqrt(1 + clat * cos_lon_over_b);
+    if (nu == 0)
+      nu = 1e-12;
+    var x = B * sqrt2 * clat * sin_lon_over_b / nu,
         y = - sqrt2 * slat / nu;
     return [
       scale * 0.5 * x + translate[0],
