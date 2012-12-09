@@ -5954,6 +5954,9 @@
       translate = [ +x[0], +x[1] ];
       return albers;
     };
+    albers.shouldInterpolate = function() {
+      return true;
+    };
     return reload();
   };
   d3.geo.albersUsa = function() {
@@ -6132,6 +6135,9 @@
     composite.projectionName = function() {
       return impl_name;
     };
+    composite.shouldInterpolate = function() {
+      return impl.shouldInterpolate;
+    };
     return composite;
   };
   d3.geo.equirectangular = function() {
@@ -6227,6 +6233,9 @@
       translate = [ +x[0], +x[1] ];
       return hammer;
     };
+    hammer.shouldInterpolate = function() {
+      return true;
+    };
     return hammer.origin([ 0, 0 ]);
   };
   d3.geo.lambert_azimuthal = function() {
@@ -6290,34 +6299,73 @@
       return result;
     }
     function projectPath(buffer, coordinates, isPolygon) {
-      var projected = [], n = coordinates.length, i = -1, minDist = 25, maxRecursion = 2;
+      function normdiff(v1, v2) {
+        return Math.sqrt((v1[0] - v2[0]) * (v1[0] - v2[0]) + (v1[1] - v2[1]) * (v1[1] - v2[1]));
+      }
+      var projected = [], n = coordinates.length, i = -1, acceptableLength = 25, magnitudeMargin = 2;
       i = -1;
       while (++i < n) {
         projected[i] = projection(coordinates[i]);
       }
-      if (n > 0) {
+      if (projection.shouldInterpolate == undefined | !projection.shouldInterpolate()) {
         buffer.push("M", projected[0].join(","));
-        while (++i < n) {
-          function interpolate(a, b, origA, origB, depth) {
-            var dist = normdiff(a, b);
-            if (depth > maxRecursion) {
-              console.log("Depth exceeded");
-              buffer.push("M", b.join(","));
-            } else if (dist > minDist) {
-              var k = 1, last = a, lastOrig = origA;
-              while (k * minDist < dist) {
-                var interpolated = [ k * minDist / dist * origA[0] + (1 - k * minDist / dist) * origB[0], k * minDist / dist * origA[1] + (1 - k * minDist / dist) * origB[1] ], projected = projection(interpolated);
-                interpolate(last, projected, lastOrig, interpolated, depth + 1);
-                k += 1;
-                last = projected;
-                lastOrig = interpolated;
-              }
-            } else {
-              buffer.push("L", b.join(","));
-            }
-          }
-          interpolate(projected[i - 1], projected[i], coordinates[i - 1], coordinates[i], 0);
+        for (var i = 1; i < projected.length; ++i) {
+          buffer.push("L", projected[i].join(","));
         }
+        buffer.push("Z");
+        return;
+      }
+      var trees = [];
+      if (n > 0) {
+        i = 0;
+        while (++i < n) {
+          function interpolate(a, b, origA, origB, depth, expectedMagnitude, parentVector) {
+            var midpoint = [ (origA[0] + origB[0]) / 2, (origA[1] + origB[1]) / 2 ], projectedMidpoint = projection(midpoint), a2midpoint = normdiff(a, projectedMidpoint), midpoint2b = normdiff(projectedMidpoint, b), norm = normdiff(a, b), tree = {};
+            tree.left = a;
+            tree.right = b;
+            if (norm < acceptableLength) {
+              tree.render = function() {
+                buffer.push("L", b.join(","));
+              };
+              tree.yield = function(lst) {
+                lst.push(b);
+              };
+              tree.yieldCount = 1;
+            } else if (midpoint2b > Math.pow(a2midpoint, magnitudeMargin)) {
+              var leftChild = interpolate(a, projectedMidpoint, origA, midpoint, depth + 1);
+              tree.render = function() {
+                leftChild.render();
+                buffer.push("M", b.join(","));
+              };
+              tree.left = leftChild.left;
+              tree.yield = function(lst) {
+                leftChild.yield(lst);
+                lst.push(b);
+              };
+              tree.yieldCount = leftChild.yieldCount + 1;
+            } else {
+              var leftChild = interpolate(a, projectedMidpoint, origA, midpoint, depth + 1), rightChild = interpolate(projectedMidpoint, b, midpoint, origB, depth + 1);
+              tree.render = function() {
+                leftChild.render();
+                rightChild.render();
+              };
+              tree.left = leftChild.left;
+              tree.right = rightChild.right;
+              tree.yield = function(lst) {
+                leftChild.yield(lst);
+                rightChild.yield(lst);
+              };
+              tree.yieldCount = leftChild.yieldCount + rightChild.yieldCount;
+            }
+            return tree;
+          }
+          var path = interpolate(projected[i - 1], projected[i], coordinates[i - 1], coordinates[i], 0);
+          trees.push(path);
+        }
+      }
+      buffer.push("M", projected[0].join(","));
+      for (var i = 0; i < trees.length; ++i) {
+        trees[i].render();
       }
       buffer.push("Z");
     }
@@ -6345,17 +6393,13 @@
     var pathType = d3_geo_type({
       FeatureCollection: function(o) {
         var features = o.features, i = -1, n = features.length;
-        while (++i < n) buffer.push(pathType(features[i].geometry));
       },
       Feature: function(o) {
         pathType(o.geometry);
       },
-      Point: function(o) {
-        buffer.push("M", projection(o.coordinates).join(","), pointCircle);
-      },
+      Point: function(o) {},
       MultiPoint: function(o) {
         var coordinates = o.coordinates, i = -1, n = coordinates.length;
-        while (++i < n) buffer.push("M", projection(coordinates[i]).join(","), pointCircle);
       },
       LineString: function(o) {
         projectPath(buffer, o.coordinates, false);
@@ -6396,7 +6440,6 @@
       },
       GeometryCollection: function(o) {
         var geometries = o.geometries, i = -1, n = geometries.length;
-        while (++i < n) buffer.push(pathType(geometries[i]));
       }
     });
     var areaType = path.area = d3_geo_type({

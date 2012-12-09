@@ -70,6 +70,8 @@ d3.geo.albers = function() {
     return albers;
   };
 
+  albers.shouldInterpolate = function() { return true; }
+
   return reload();
 };
 

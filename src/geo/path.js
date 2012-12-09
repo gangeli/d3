@@ -30,7 +30,7 @@ d3.geo.path = function() {
         n = coordinates.length,
         i = -1,
         // (interpolation parameters)
-        acceptableLength = 25,
+        acceptableLength = 50,
         magnitudeMargin = 2.0;
     function normdiff(v1, v2) {
       return Math.sqrt((v1[0]-v2[0])*(v1[0]-v2[0]) + (v1[1]-v2[1])*(v1[1]-v2[1]));
@@ -39,6 +39,21 @@ d3.geo.path = function() {
     i = -1;
     while (++i < n) {
       projected[i] = projection(coordinates[i]);
+    }
+    // Early Exit
+    if (projection.shouldInterpolate == undefined ||
+        !projection.shouldInterpolate()) {
+      buffer.push("M", projected[0].join(","))
+      for (var i = 1; i < projected.length; ++i) {
+        buffer.push("L", projected[i].join(","));
+      }
+      buffer.push("Z");
+      return;
+    }
+    if (projection.validatePath != undefined &&
+        !projection.validatePath(coordinates    )) {
+      buffer.push("M", projected[0].join(","), "Z");
+      return;  // Don't draw
     }
     // Fill buffer
     var trees = [];
@@ -55,12 +70,10 @@ d3.geo.path = function() {
               tree = {};
           tree.left = a;
           tree.right = b;
-          if (norm < acceptableLength) {
+          if (norm < acceptableLength || depth > 10) {
             tree.render = function(){
               buffer.push("L", b.join(","));
             }
-            tree.yield = function(lst) { lst.push(b); }
-            tree.yieldCount = 1;
           } else if (midpoint2b > Math.pow(a2midpoint, magnitudeMargin)) {
             var leftChild = interpolate(a, projectedMidpoint,
                                         origA, midpoint,
@@ -70,8 +83,6 @@ d3.geo.path = function() {
               buffer.push("M", b.join(","));
             }
             tree.left = leftChild.left;
-            tree.yield = function(lst) { leftChild.yield(lst); lst.push(b); }
-            tree.yieldCount = leftChild.yieldCount + 1;
           } else {
             var leftChild = interpolate(a, projectedMidpoint,
                                         origA, midpoint,
@@ -85,8 +96,6 @@ d3.geo.path = function() {
             }
             tree.left = leftChild.left;
             tree.right = rightChild.right;
-            tree.yield = function(lst) { leftChild.yield(lst); rightChild.yield(lst); }
-            tree.yieldCount = leftChild.yieldCount + rightChild.yieldCount;
           }
           return tree;
         }   // close interpolate
@@ -108,7 +117,7 @@ d3.geo.path = function() {
       var features = o.features,
           i = -1, // features.index
           n = features.length;
-//      while (++i < n) buffer.push(pathType(features[i].geometry));
+      while (++i < n) buffer.push(pathType(features[i].geometry));
     },
 
     Feature: function(o) {
@@ -116,14 +125,14 @@ d3.geo.path = function() {
     },
 
     Point: function(o) {
-//      buffer.push("M", projection(o.coordinates).join(","), pointCircle);
+      buffer.push("M", projection(o.coordinates).join(","), pointCircle);
     },
 
     MultiPoint: function(o) {
       var coordinates = o.coordinates,
           i = -1, // coordinates.index
           n = coordinates.length;
-//      while (++i < n) buffer.push("M", projection(coordinates[i]).join(","), pointCircle);
+      while (++i < n) buffer.push("M", projection(coordinates[i]).join(","), pointCircle);
     },
 
     LineString: function(o) {
@@ -189,7 +198,7 @@ d3.geo.path = function() {
       var geometries = o.geometries,
           i = -1, // geometries index
           n = geometries.length;
-//      while (++i < n) buffer.push(pathType(geometries[i]));
+      while (++i < n) buffer.push(pathType(geometries[i]));
     }
 
   });

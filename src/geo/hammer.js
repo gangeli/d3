@@ -124,5 +124,35 @@ d3.geo.hammer = function(B) {
     return hammer;
   };
 
+  hammer.shouldInterpolate = function() { return true; }
+
+  // TODO(Gabor Angeli)
+  // Detect the case when a polygon spans the crescent on both the left and
+  // right edges of the globe (or top and bottom). In this case, a solid grey
+  // circle appears covering the entire projection.
+  // This is a bit of a hack; it would be better for this to be handled in
+  // path.js, but it's very hard to detect.
+  hammer.validatePath = function(path) {
+    if (B > 1.25) return true; // only a problem for Lambert Azimuthal
+    for (var i = 0; i < path.length; ++i) {
+      var lon = path[i][0] * d3_geo_radians - origin[0],
+          lat = path[i][1] * d3_geo_radians;
+      while (lon < -Math.PI) lon += Math.PI * 2.0;
+      while (lon > Math.PI) lon -= Math.PI * 2.0;
+      var center = rotateLatitude(lon, lat, -origin[1]),
+          lon = center[0],
+          lat = center[1],
+          toleranceLon = Math.PI / 4,
+          toleranceLat = Math.PI / 12;
+      if (lon < Math.PI - toleranceLon && lon > -Math.PI + toleranceLon &&
+          lat < Math.PI / 2 - toleranceLat && lat > -Math.PI / 2 + toleranceLat) {
+        return true;
+      }
+    }
+    // case: every point is somewhere near the edge of the globe; be safe
+    //       and ignore the path.
+    return false;
+  }
+
   return hammer.origin([0, 0]);
 };

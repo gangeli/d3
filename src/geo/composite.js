@@ -164,5 +164,14 @@ d3.geo.composite = function(viewport) {
     return impl_name;
   };
 
+  composite.shouldInterpolate = function() {
+    return impl.shouldInterpolate;
+  }
+
+  composite.validatePath = function(path) {
+    if (impl.validatePath != undefined) { return impl.validatePath(path); }
+    return true;
+  }
+
   return composite;
 };
