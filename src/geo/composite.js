@@ -14,8 +14,7 @@ d3.geo.composite = function(viewport) {
       smaller_dimension = Math.min(width, height),
       viewport_center = [viewport[0] + width/2, viewport[1] + height/2];
 
-  var albers_conic = function(origin, scale, alpha, dest_parellel) {
-         // TODO(gangeli)
+  var albers_conic = function(origin, scale, alpha, dest_parallel) {
          var origin_degrees = [
              origin[0] / d3_geo_radians,
              origin[1] / d3_geo_radians
@@ -25,16 +24,16 @@ d3.geo.composite = function(viewport) {
              top_latitude = impl.invert(top_coord)[1], // FIXME: which impl?
              bottom_latitude = impl.invert(bot_coord)[1],
              latitude_range = top_latitude - bottom_latitude,
-             top_parellel = top_latitude - 15 * latitude_range / 100.0,
-             bottom_parellel = bottom_latitude + 15 * latitude_range / 100.0;
+             top_parallel = top_latitude - 15 * latitude_range / 100.0,
+             bottom_parallel = bottom_latitude + 15 * latitude_range / 100.0;
          if (typeof alpha != "undefined") {
-           top_parellel = (1 - alpha) * top_parellel + alpha * dest_parellel;
-           bottom_parellel = (1 - alpha) * bottom_parellel + alpha * dest_parellel;
+           top_parallel = (1 - alpha) * top_parallel + alpha * dest_parallel;
+           bottom_parallel = (1 - alpha) * bottom_parallel + alpha * dest_parallel;
          }
          return d3.geo.albers()
            .parallels([
-             bottom_parellel,
-             top_parellel])
+             bottom_parallel,
+             top_parallel])
            .origin(origin_degrees)
            .scale(scale * smaller_dimension * 0.5)
        },
@@ -94,7 +93,7 @@ d3.geo.composite = function(viewport) {
              return [lambert_cylindrical(origin, scale), "Lambert cylindrical"];
            } else {
              return [albers_conic(origin, scale, (22 - lat) / (22 - lat2), 0),
-               "Albers conic with adjusted standard parellels"];
+               "Albers conic with adjusted standard parallels"];
            }
          } else if (scale <= 13 || (scale < 15 && dontInterpolate)) {
            if (lat <= 15) {
@@ -104,10 +103,10 @@ d3.geo.composite = function(viewport) {
            } else {
              if (lat < 22) {
                return [albers_conic(origin, scale, (22 - lat) / (22 - 15), 0),
-                 "Albers conic with adjusted standard parellels"];
+                 "Albers conic with adjusted standard parallels"];
              } else if (lat > 60) {
                return [albers_conic(origin, scale, (lat - 60) / (75 - 60), 90),
-                 "Albers conic with adjusted standard parellels"];
+                 "Albers conic with adjusted standard parallels"];
              } else {
                return [albers_conic(origin, scale), "Albers conic"];
              }

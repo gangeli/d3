@@ -15,10 +15,12 @@ d3.geo.albers = function() {
   function albers(coordinates) {
     var t = n * (d3_geo_radians * coordinates[0] - lng0),
         p = Math.sqrt(C - 2 * n * Math.sin(d3_geo_radians * coordinates[1])) / n;
-    return [
+    var output = [
       scale * p * Math.sin(t) + translate[0],
       scale * (p * Math.cos(t) - p0) + translate[1]
     ];
+    if (isNaN(output[0]) || isNaN(output[1])) { console.log("ERROR"); return [0, 0]; }
+    return output;
   }
 
   albers.invert = function(coordinates) {
