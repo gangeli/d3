@@ -74,6 +74,7 @@ d3.geo.composite = function(viewport) {
              xy2 = impl2.invert(coordinates);
          return [(1 - alpha) * xy[0] + alpha * xy2[0], (1 - alpha) * xy[1] + alpha * xy2[1]];
        };
+       ret.shouldInterpolate = true;
        return ret;
      },
 
