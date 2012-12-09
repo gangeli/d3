@@ -172,5 +172,13 @@ d3.geo.composite = function(viewport) {
     return true;
   }
 
+  composite.animate = function(refresh, new_origin, new_scale, num_steps) {
+    if (new_scale == undefined) new_scale = scale;
+    if (num_steps == undefined) num_steps = 100;
+    for (var i = 0; i < num_steps; ++i) {
+      
+    }
+  }
+
   return composite;
 };

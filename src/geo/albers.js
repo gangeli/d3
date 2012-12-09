@@ -73,6 +73,22 @@ d3.geo.albers = function() {
   };
 
   albers.shouldInterpolate = function() { return true; }
+  
+  // TODO(Gabor Angeli)
+  // Detect the case when a polygon spans the crescent on both the left and
+  // right edges of the globe (or top and bottom). In this case, a solid grey
+  // circle appears covering the entire projection.
+  // This is a bit of a hack; it would be better for this to be handled in
+  // path.js, but it's very hard to detect.
+  albers.validatePath = function(path) {
+    if (origin[1] < 70 && origin[1] > -70) return true;
+    for (var i = 0; i < path.length; ++i) {
+      var lat = path[i][1];
+      if (origin[1] > 70 && lat > -50) return true;
+      if (origin[1] < -70 && lat < 50) return true;
+    }
+    return false;
+  }
 
   return reload();
 };
