@@ -291,11 +291,11 @@ map.addEventListener(map.hasOwnProperty("onmousewheel") ?
 
 
 
-<form>
+
 <label><input type="checkbox" id="graticules-box"> Graticules</label><br>
 <label><input type="checkbox" id="countries-box"> Countries</label><br>
-<label><input type="checkbox" id="cities-box"> Cities</label>
-</form>
+<label><input type="checkbox" id="cities-box"> Cities</label><br>
+<button id="measure-fps">Measure FPS</button> <span id="fps"></span><br>
 
 
 
@@ -339,6 +339,34 @@ if (showsCountries)
 if (showsCities)
   $("#cities-box").attr('checked', 'checked');
 
+var loopRunning = false;
+function measureFPS() {
+  loopRunning = !loopRunning;
+  if (loopRunning) {
+    var div = $("#fps").get(0),
+        lastLoop = new Date,
+        lastUpdate = lastLoop,
+        requestFrame = window.requestAnimationFrame       || 
+                       window.webkitRequestAnimationFrame || 
+                       window.mozRequestAnimationFrame;
+    (function loop() {
+      if (!loopRunning) {
+        div.innerHTML = "";
+        return;
+      }
+      requestFrame(loop);
+      var thisLoop = new Date;
+      if (thisLoop - lastUpdate > 100) {
+        var fps = 1000 / (thisLoop - lastLoop);
+        div.innerHTML = Math.round(fps);
+        lastUpdate = thisLoop;
+      }
+      lastLoop = thisLoop;
+    })();
+  }
+}
+
+$("#measure-fps").click(measureFPS);
 </script>
 
 <table cellpadding="0" cellspacing="0">
