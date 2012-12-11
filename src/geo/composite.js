@@ -172,6 +172,42 @@ d3.geo.composite = function(viewport) {
     if (impl.validatePath != undefined) { return impl.validatePath(path); }
     return true;
   }
+  
+  function toVector(coordinates) {
+    var lon = coordinates[0],
+        lat = coordinates[1],
+        clat = Math.cos(lat);
+    return [clat * Math.cos(lon), clat * Math.sin(lon), Math.sin(lat)];
+  }
+  
+  function toCoordinates(n) {
+    return [Math.atan2(n[1], n[0]), Math.atan2(n[2], Math.sqrt(n[0] * n[0] + n[1] * n[1]))];
+  }
+  
+  function slerp(n1, n2, t) {
+    var theta = Math.acos(n1[0] * n2[0] + n1[1] * n2[1] + n1[2] * n2[2]),
+        stheta = Math.sin(theta),
+        a = Math.sin((1 - t) * theta) / stheta,
+        b = Math.sin(t * theta) / stheta;
+    return [n1[0] * a + n2[0] * b,
+            n1[1] * a + n2[1] * b,
+            n1[2] * a + n2[2] * b];
+  }
+  
+  composite.interpolate = function(coord_degrees, coord_degrees2, t) {
+    var coord1 = [
+          coord_degrees[0] * d3_geo_radians,
+          coord_degrees[1] * d3_geo_radians
+        ],
+        coord2 = [
+          coord_degrees2[0] * d3_geo_radians,
+          coord_degrees2[1] * d3_geo_radians
+        ],
+        n1 = toVector(coord1),
+        n2 = toVector(coord2),
+        ret = toCoordinates(slerp(n1, n2, t));
+    return [ret[0] / d3_geo_radians, ret[1] / d3_geo_radians];
+  };
 
   return composite;
 };
