@@ -29,22 +29,21 @@ d3.geo.path = function() {
       magnitudeMargin = 2.0;
   
   function interpolate(a, b, origA, origB, depth) {
-    var midpoint = [(origA[0] + origB[0]) / 2.0, (origA[1] + origB[1]) / 2.0],
-        projectedMidpoint = projection(midpoint),
-        a2midpoint = normdiff(a, projectedMidpoint),
-        midpoint2b = normdiff(projectedMidpoint, b),
-        norm       = normdiff(a, b),
-        tree = {};
-    if (norm < acceptableLength || depth > 20) {
-      tree.render = function(){
+    if (normdiff(a, b) < acceptableLength || depth > 20) {
+      return function(){
         buffer.push("L", b.join(","));
-      }
-    } else if (midpoint2b > Math.pow(a2midpoint, magnitudeMargin)) {
+      };
+    }
+    var midpoint = [(origA[0] + origB[0]) / 2.0, (origA[1] + origB[1]) / 2.0],
+      projectedMidpoint = projection(midpoint),
+      a2midpoint = normdiff(a, projectedMidpoint),
+      midpoint2b = normdiff(projectedMidpoint, b);
+    if (midpoint2b > Math.pow(a2midpoint, magnitudeMargin)) {
       var leftChild = interpolate(a, projectedMidpoint,
                                   origA, midpoint,
                                   depth + 1);
-      tree.render = function(){
-        leftChild.render();
+      return function(){
+        leftChild();
         buffer.push("M", b.join(","));
       }
     } else {
@@ -54,12 +53,11 @@ d3.geo.path = function() {
           rightChild = interpolate(projectedMidpoint, b,
                                   midpoint, origB,
                                   depth + 1);
-      tree.render = function(){
-        leftChild.render();
-        rightChild.render();
+      return function(){
+        leftChild();
+        rightChild();
       }
     }
-    return tree;
   }
 
   /*
@@ -107,7 +105,7 @@ d3.geo.path = function() {
     }       //  close if
     buffer.push("M", projected[0].join(","))
     for (var i = 0; i < trees.length; ++i)
-      trees[i].render();
+      trees[i]();
     if (isPolygon)
       buffer.push("Z");
   }
