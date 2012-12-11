@@ -97,7 +97,7 @@ var width = 960,
     height = 500,
     showsCountries = true,
     showsGraticules = true,
-    showsCities = true;
+    showsCities = false;
 
 // Our projection.
 var xy = d3.geo.composite([0, 0, width, height]),
@@ -112,7 +112,8 @@ var localStates = localSVG.append("g")
     .attr("id", "states");
 
 var localCities = localSVG.append("g")
-    .attr("id", "cities");
+    .attr("id", "cities")
+    .attr("display", "none");
 
 var globalSVG = d3.select("body")
   .append("svg")
@@ -149,9 +150,7 @@ d3.json("../data/world-countries.json", function(collection) {
       .selectAll("text")
         .data(collection)
       .enter().append("text")
-        .text(function(e) {
-          return e.name;
-        })
+        .text(function(e) { return e.name; })
         .attr("transform", function(e) {
           return "translate(" + xy(e.coordinates).join(",") + ")";
         });
@@ -255,6 +254,7 @@ var prevCoordinates;
 map.addEventListener("mousedown", function(e) {
   mouseState = 1;
   prevCoordinates = [e.layerX, e.layerY];
+  e.preventDefault();
 });
 
 map.addEventListener("mousemove", function(e) {
@@ -321,6 +321,7 @@ $("#countries-box").change(function(e) {
     localStates.attr("display", "none");
     globalStates.attr("display", "none");
   }
+  refresh();
 });
 
 $("#cities-box").change(function(e) {
@@ -330,6 +331,7 @@ $("#cities-box").change(function(e) {
   } else {
     localCities.attr("display", "none");
   }
+  refresh();
 });
 
 if (showsGraticules)
