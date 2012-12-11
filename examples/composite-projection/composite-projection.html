@@ -26,6 +26,7 @@ svg {
   height: 500px;
   border: solid 1px #000;
   background: rgb(165, 191, 221);
+  position: relative;
 }
 
 #states path {
@@ -79,6 +80,11 @@ svg text {
   font-weight: bold;
 }
 
+#greatArc {
+  fill: none;
+  stroke: #f00;
+}
+
 table td:first-child {
   width: 120px;
   height: 26px;
@@ -91,7 +97,20 @@ table td:nth-child(2) {
 </head>
 <body>
 <h3>Composite Projection</h3>
+<svg id="map"></svg>
+<svg id="map2"></svg>
 <script type="text/javascript">
+function mouseOffset(e) {
+  var el = e.target,
+      x = y = 0;
+  while (el) {
+    x += el.offsetLeft - el.scrollLeft;
+    y += el.offsetTop - el.scrollTop;
+    el = el.offsetParent;
+  }
+  return [e.clientX - x, e.clientY - y];
+}
+
 var requestFrame = window.requestAnimationFrame       || 
                    window.webkitRequestAnimationFrame || 
                    window.mozRequestAnimationFrame;
@@ -100,16 +119,20 @@ var width = 960,
     height = 500,
     showsCountries = true,
     showsGraticules = true,
-    showsCities = false;
+    showsCities = false,
+    greatArc = null,
+    greatArcMultiLineString = [];
 
 // Our projection.
 var xy = d3.geo.composite([0, 0, width, height]),
     path = d3.geo.path().projection(xy);
 
-var localSVG = d3.select("body")
-  .append("svg")
-    .attr("id", "map")
-    .style("position", "relative");
+var graticule = d3.geo.graticule()
+  .step([20, 20]);
+
+
+// Create the local map.
+var localSVG = d3.select("#map");
 
 var localStates = localSVG.append("g")
     .attr("id", "states");
@@ -118,16 +141,48 @@ var localCities = localSVG.append("g")
     .attr("id", "cities")
     .attr("display", "none");
 
-var globalSVG = d3.select("body")
-  .append("svg")
-    .attr("id", "map2")
-    .style("position", "relative");
+var localGraticules = localSVG.append("g");
 
-var svg2g = globalSVG.append("g");
+localGraticules
+  .append("path")
+    .datum(graticule)
+    .attr("class", "graticule line")
+    .attr("d", path);
 
-var globalStates = svg2g.append("g")
+// Create the global map.
+var globalSVG = d3.select("#map2");
+
+var globalGroup = globalSVG.append("g");
+
+var globalStates = globalGroup.append("g")
     .attr("id", "states2");
 
+var viewport = globalGroup.append("rect")
+  .attr("id", "viewport")
+  .attr("x", 0)
+  .attr("y", 0)
+  .attr("width", width)
+  .attr("height", height);
+  
+var globalGraticules = globalGroup.append("g");
+
+globalGraticules
+  .append("path")
+    .datum(graticule)
+    .attr("class", "graticule line")
+    .attr("d", path);
+
+var projectionName = globalSVG.append("text")
+    .attr("id", "projectionname")
+    .text(xy.projectionName())
+    .attr("x", width - 20)
+    .attr("y", 30)
+    ;
+
+var globalGreatArc = globalGroup.append("path")
+  .attr("id", "greatArc");
+
+// Load data.
 d3.json("../data/world-countries.json", function(collection) {
   localStates
     .selectAll("path")
@@ -166,43 +221,9 @@ d3.json("../data/world-countries.json", function(collection) {
       .attr("d", path);
 });
 
-var graticule = d3.geo.graticule()
-  .step([20, 20]);
-
-var localGraticules = localSVG.append("g");
-
-if (1)
-localGraticules
-  .append("path")
-    .datum(graticule)
-    .attr("class", "graticule line")
-    .attr("d", path);
-
-
-var viewport = svg2g.append("rect")
-  .attr("id", "viewport")
-  .attr("x", 0)
-  .attr("y", 0)
-  .attr("width", width)
-  .attr("height", height);
-  
-var globalGraticules = svg2g.append("g");
-
-globalGraticules
-  .append("path")
-    .datum(graticule)
-    .attr("class", "graticule line")
-    .attr("d", path);
-
-var projectionName = globalSVG.append("text")
-    .attr("id", "projectionname")
-    .text(xy.projectionName())
-    .attr("x", width - 20)
-    .attr("y", 30)
-    ;
-
 
 function refresh() {
+  // Refresh the local map.
   if (showsCountries) {
     localStates.selectAll("path")
       .attr("d", path);
@@ -229,30 +250,55 @@ function refresh() {
       .text(xy.origin()[1]);
   d3.select("#scale span")
       .text(xy.scale());
-      
+
+  // Refresh the global map.
+  var scale = xy.scale() / 0.6;
+  
   if (showsCountries) {
     globalStates.selectAll("path")
       .attr("d", path);
   }
 
-  svg2g.attr("transform",
+  globalGroup.attr("transform",
     "translate(" + (width/2) + "," + (height/2) + ")" +
-    "scale(" + (1/xy.scale() * 0.6) + ")" +
+    "scale(" + (1 / scale) + ")" +
     "translate(" + (-width/2) + "," + (-height/2) + ")"
     );
   globalStates.selectAll("path")
-    .attr("stroke-width", xy.scale() / 0.6);
+    .attr("stroke-width", scale);
   globalGraticules.selectAll("path")
     .attr("d", path)
-    .attr("stroke-width", xy.scale() / 0.6);
-  viewport.attr("stroke-width", xy.scale() / 0.6 * 1.4);
+    .attr("stroke-width", scale);
+  viewport.attr("stroke-width", scale * 1.8);
   projectionName.text(xy.projectionName());
+  
+  refreshLines();
+}
+
+function refreshLines() {
+  var scale = xy.scale() / 0.6;
+  if (greatArc) {
+    globalGreatArc
+      .datum({
+        type: "MultiLineString",
+        coordinates: greatArcMultiLineString
+      })
+      .attr("d", path)
+      .attr("stroke-width", scale * 1.6);
+      ;
+  } else {
+    globalGreatArc.attr("d", "M0,0");
+  }
 }
 
 refresh();
 
 
 function animate() {
+  if (!greatArc) {
+    alert("Drag the cursor on the second map to create a path.");
+    return;
+  }
   var start = new Date;
   var t = 0;
   (function loop() {
@@ -261,29 +307,29 @@ function animate() {
     if (t > 1)
       t = 1;
     var easedT = t - 0.1 * Math.sin(2 * t * Math.PI);
-    var c = xy.interpolate([0,0], [-100.1,40.1], easedT);
+    var c = xy.interpolate(greatArc[0], greatArc[1], easedT);
     xy.origin(c);
-    xy.scale(4 - Math.sin(t * Math.PI));
+    xy.scale(4 - 2 * Math.sin(t * Math.PI));
     refresh();
     if (t == 1)
       return;
     requestFrame(loop);
   })();
-  
 }
 
 var mouseState = 0;
-var map = document.getElementById("map");
+var localMap = document.getElementById("map");
+var globalMap = document.getElementById("map2");
 var prevCoordinates;
-map.addEventListener("mousedown", function(e) {
+localMap.addEventListener("mousedown", function(e) {
   mouseState = 1;
-  prevCoordinates = [e.layerX, e.layerY];
+  prevCoordinates = mouseOffset(e);
   e.preventDefault();
 });
 
-map.addEventListener("mousemove", function(e) {
+localMap.addEventListener("mousemove", function(e) {
   if (mouseState == 1) {
-    var coordinates = [e.layerX, e.layerY];
+    var coordinates = mouseOffset(e);
     var prevD = xy.invert(prevCoordinates);
     var D = xy.invert(coordinates);
     var origin = xy.origin();    
@@ -302,26 +348,86 @@ document.addEventListener("mouseup", function(e) {
 var mousewheel = function (e) {
   var delta = e.wheelDelta ? e.wheelDelta : e.detail,
       scale = xy.scale() + delta / 1000;
-  if (scale < 0.5)
-    scale = 0.5;
+  if (scale < 0.6)
+    scale = 0.6;
   xy.scale(scale);
   refresh();
   e.preventDefault();
 };
 
-map.addEventListener(map.hasOwnProperty("onmousewheel") ?
+localMap.addEventListener(map.hasOwnProperty("onmousewheel") ?
   "mousewheel" : "DOMMouseScroll", mousewheel);
+
+
+function wrap(coordinates) {
+    while (coordinates[0] < -180) coordinates[0] += 360;
+    while (coordinates[0] > 180) coordinates[0] -= 360;
+}
+
+function globalToLocalCoordinates(e) {
+  var k = xy.scale() / 0.6,
+      halfWidth = width / 2,
+      halfHeight = height / 2;
+  return coordinates = [
+    (e[0] - halfWidth) * k + halfWidth,
+    (e[1] - halfHeight) * k + halfHeight
+  ];
+}
+
+var startCoordinates;
+
+globalMap.addEventListener("mousedown", function(e) {
+  mouseState = 2;
+  e.preventDefault();
+  
+  var coordinates = xy.invert(globalToLocalCoordinates(mouseOffset(e)));
+  wrap(coordinates);
+  startCoordinates = coordinates;
+  
+  greatArc = null;
+  refreshLines();
+});
+
+globalMap.addEventListener("mousemove", function(e) {
+  if (mouseState == 2) {
+    var coordinates = xy.invert(globalToLocalCoordinates(mouseOffset(e)));
+    wrap(coordinates);
+    
+    var multiLineString = function (c1, c2) {
+			var line = [c1], s = [line],
+			    c, lastC = c1;
+			for (var t = 0.025; t < 1; t += 0.025) {
+				c = xy.interpolate(c1, c2, t);
+				if (isNaN(c[0]) || isNaN(c[1]))
+					return [];
+				wrap(c);
+				if (Math.abs(c[0] - lastC[0]) > 180) {
+					line = [];
+					s.push(line);
+				}
+				line.push(c);
+				lastC = c;
+			}
+			line.push(c2);
+			return s;
+    }
+
+    greatArc = [startCoordinates, coordinates];
+    greatArcMultiLineString = multiLineString(startCoordinates, coordinates);
+    refreshLines();
+  }
+});
 </script><br><br>
 
 
 
-
+<div id="control">
 <label><input type="checkbox" id="graticules-box"> Graticules</label><br>
 <label><input type="checkbox" id="countries-box"> Countries</label><br>
 <label><input type="checkbox" id="cities-box"> Cities</label><br>
 <button id="animate">Animate</button><br><br>
-<button id="measure-fps">Measure FPS</button> <span id="fps"></span><br>
-
+<!-- <button id="measure-fps">Measure FPS</button> <span id="fps"></span><br> -->
+</div>
 
 
 <script type="text/javascript">
@@ -366,6 +472,9 @@ if (showsCountries)
 if (showsCities)
   $("#cities-box").attr('checked', 'checked');
 
+$("#animate").click(animate);
+
+/*
 var loopRunning = false;
 function measureFPS() {
   loopRunning = !loopRunning;
@@ -391,8 +500,7 @@ function measureFPS() {
 }
 
 $("#measure-fps").click(measureFPS);
-
-$("#animate").click(animate);
+*/
 </script>
 
 <table cellpadding="0" cellspacing="0">
