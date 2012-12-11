@@ -39,6 +39,20 @@ d3.geo.hammer = function(B) {
       Math.asin(Math.max(-1, Math.min(1, k)))
     ];
   }
+  
+  function rotateLatitudeInverse(longitude, latitude, delta) {
+    var cosdelta = Math.cos(delta),
+        sindelta = Math.sin(delta),
+        clat = Math.cos(latitude),
+        x = Math.cos(longitude) * clat,
+        y = Math.sin(longitude) * clat,
+        z = Math.sin(latitude),
+        k = z;
+    return [
+      Math.atan2(y, x * cosdelta + k * sindelta),
+      Math.asin(Math.max(-1, Math.min(1, k * cosdelta - x * sindelta)))
+    ];
+  }
 
   function hammer(coordinates_degrees) {
     // Adjust Lat/Lon
@@ -98,6 +112,24 @@ d3.geo.hammer = function(B) {
       lat = aasin(z * y);
     }
     return [(lon + origin[0]) / d3_geo_radians, (lat + origin[1]) / d3_geo_radians];
+  };
+  
+  if (1)
+  hammer.invert = function(coordinates) {
+    var x = (coordinates[0] - translate[0]) / (scale * 0.5),
+    y = -(coordinates[1] - translate[1]) / (scale * 0.5);
+    var wx = x / B;
+    var lon, lat;
+    var z = Math.sqrt(1 - 0.25 * (wx * wx + y * y));
+    var zz2_1 = 2 * z * z - 1;
+    if (zz2_1 == 0)
+      zz2_1 = 1e-10;
+    lon = aatan2(wx * z, zz2_1) * B;
+    lat = aasin(z * y);
+    var center = rotateLatitudeInverse(lon, lat, -origin[1]);
+    lon = center[0];
+    lat = center[1];
+    return [(lon + origin[0]) / d3_geo_radians, lat / d3_geo_radians];
   };
 
   hammer.origin = function(origin_degrees) {
