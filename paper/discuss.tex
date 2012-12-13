@@ -1,0 +1,25 @@
+\Section{discuss}{Discussion and Future Work}
+The largest bit of work which we intend to undertake is submitting a pull
+  request to D3, in hopes that the extensions will actually be incorporated into
+  the distribution.
+More conceptually, however, a number of improvements could be made.
+
+Largest among them: the current D3 framework views projections as a mapping
+  from points to points.
+In this framework, drawing a closed polygon will always draw the inside of the
+  region.
+This results in the error discussed above, wherein an extremely distorted
+  polygon will cover the entire globe.
+The principled solution to this, as is being implemented in the most recent
+  version of D3, is to specify a polarity for the polygon and shade only the
+  region inside.
+
+Relatedly, handling wrapping of polygons would be more elegantly done if the
+  polygons are treated as atomic units, rather than a collection of points.
+This is also, we hear, in the works for newer D3 versions.
+
+More on the esthetics side, integration with OpenStreetMap would make for a
+  compelling demo.
+The challenge there is mapping accurately from their notion of scale to ours,
+  and smoothly rescaling tiles as we change zoom levels, as their resolution
+   is more fine-grained than the resolution we allow.
