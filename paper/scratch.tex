@@ -1,0 +1,37 @@
+\paragraph{Extreme Distortion}
+A nuanced problem arises in the Lambert Azimuthal projection, and the Hammer
+  variants which approach it.
+When a polygon of nonzero width is projected onto the edge of the map, it
+  begins to distort into a crescent shape, eventually becoming a half-circle.
+In itself, this can be faithfully rendered by interpolating the polygon.
+However, in certain cases the splitting line goes down the center of the
+  polygon, and we get as a result two opposing half-circles, one on each side
+  of the map.
+The effect is that our interpolated path becomes a full circle, without large
+  jumps or visible discontinuities, as the location of the jump is at the pole.
+Since we naively fill any polygon we render, the visual result is a colored
+  circle overlaying the rest of the map.
+This is relevant as Antarctica distorts into the bottom of the map, or as
+  continents distort off of the sides (e.g., South America or Africa).
+
+We address this problem by querying the projection regarding whether a
+  proposed path will undergo extreme distortion.
+If every vertex in the path is beyond a threshold, the path is not rendered.
+This causes polygons near the edge of the map to disappear after a certain
+  point; however, by then they are thin enough that the practical effect is
+  minimal.
+
+Importantly, we note that the proof-of-concept implementation does not handle
+  this case, despite having the benefit of hiding polygons as they exit the
+  viewport.
+See \reffig{reference_bug}, or center the demo at zoom level 2.1 and coordinates
+  $(100W, 65S)$.
+
+\Fig{img/reference_bug.png}{0.25}{reference_bug}{
+  A snapshot of the reference implementation from \cite{key:2012jenny-maps},
+  found at
+  \url{http://cartography.oregonstate.edu/demos/CompositeMapProjection/}.
+  The coordinates are $(100W, 65S)$ at a zoom of 2.1.
+  Note that Russia has distorted around the map, causing polygons to close
+  themselves in front of the globe.
+}
