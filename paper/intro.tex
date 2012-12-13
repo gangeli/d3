@@ -1,11 +1,11 @@
 \Section{intro}{Introduction}
 A significant challenge in selecting an appropriate map projection, and
-  parameterization for that projection, for visualizing geographic data.
+  parametrization for that projection, for visualizing geographic data.
 As no projection is good in every aspect, competing criteria include:
 
 \begin{itemize}
   \item \textbf{Equal area}: A projection should preserve the areas of a
-        polynomial. For instance, the Mercator projection presents innacurate
+        polynomial. For instance, the Mercator projection presents inaccurate
         areas near the poles. In contrast, projections such as the Hammer,
         Lambert Azimuthal, or the Albers Conic projection preserve area.
   \item \textbf{Conformal}: A projection should preserve local angles.
@@ -24,16 +24,16 @@ In addition, a projection should take into account to following criteria:
         a cone is often relevant. For example, showing the entire globe on a
         cone or other uncommon projection may serve to confuse the user more
         then enlighten them.
-  \item \textbf{Aspect}: Often it is benificial to view the map from an oblique
+  \item \textbf{Aspect}: Often it is beneficial to view the map from an oblique
         angle; for example, for viewing areas near the poles.
   \item \textbf{Integration with existing services}: In particular, many of the
-        maps on the internet use the Mercator projection, including importantly
-        Google Maps and OpenStreetMap. It's benificial to be able to interface
+        maps on the Internet use the Mercator projection, including importantly
+        Google Maps and OpenStreetMap. It's beneficial to be able to interface
         with these services.
 \end{itemize}
 
 A recent paper by Bernhard Jenny \cite{key:2012jenny-maps} implemented an
-  adaptive projection, which attempts to balance the critera above
+  adaptive projection, which attempts to balance the criteria above
   depending on the user's absolute latitude and the scale at which they
   view the map.
 More details can be found in the Previous Work section.

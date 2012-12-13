@@ -1,5 +1,5 @@
 \Section{previous}{Previous Work}
-The bulk of our project comes from the reimplimentation of a recent paper
+The bulk of our project comes from the reimplementation of a recent paper
   \cite{key:2012jenny-maps}; we summarize the approach here.
 
 Much of the insight from Jenny's paper, in turn, stems from an earlier work
@@ -27,13 +27,13 @@ Jenny outlines the criteria being optimized, which we in turn inherit:
         following criteria:
         (1) They should be outward-pointing and not unusually-shaped;
         (2) The equator should be a straight line when the map is centered on it;
-        (3) Straight longitude and latitude graticules are prefered where possible;
+        (3) Straight longitude and latitude graticules are preferred where possible;
         and
         (4) Straight meridians should be used in polar views.
-  \item \textbf{Esthetics} Esthetically, maps with eliptical borders are
-        prefered to those with rectangular shapes.
+  \item \textbf{Aesthetics} Aesthetically, maps with elliptical borders are
+        preferred to those with rectangular shapes.
   \item \textbf{Continuity} There should be continuity in the transitions
-        between projections -- this is particulary important to our application,
+        between projections -- this is particularly important to our application,
         to help with smooth animations.
 \end{itemize}
 
@@ -69,7 +69,7 @@ In particular, near the equator we select the Lambert Cylindrical projection,
   optimizing for straight graticules.
 Near the equator, this transitions seamlessly from Lambert Azimuthal.
 In the majority of the middle latitudes, we use the Albers Conic projection.
-Since we are sufficiently zoomed in, we do not see the esthetically unappealing
+Since we are sufficiently zoomed in, we do not see the aesthetically unappealing
   properties of the conic projection; furthermore, the transition from
   Lambert Azimuthal is fairly painless.
 Lastly, at extreme latitudes we maintain the Lambert Azimuthal projection.
@@ -89,7 +89,7 @@ An overview of the behavior of our program, zooming into San Francisco, is
   given in \reffig{overview}
 \Fig{img/flow.png}{0.4}{overview}{
 An example of the algorithm, zooming in on San Francisco.
-Note that no sharp jumps are noticable (beyond those caused by zooming).
+Note that no sharp jumps are noticeable (beyond those caused by zooming).
 Nonetheless, note that the graticules are straightening as we zoom in, and by
   the end we reach the Mercator projection, allowing us to potentially
   overlay tiles.

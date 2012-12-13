@@ -3,9 +3,41 @@ The code was designed to behave as much as a plug-and-play replacement for
   other projections as possible.
 In particular, the public-facing interface for the composite projection is
   very similar to that of other projections, and no functions were introduced
+  (beyond the animate function)
   that did not exist in at least some other projection.
 The top-level interface is:
 
 \begin{itemize}
-  \item[] \textbf{\texttt{d3.geo.composite()}}
+  \item[] \textbf{\texttt{d3.geo.composite([viewport])}}
+           Create a new composite projection.
+           If a viewport is specified, the composite projection will calibrate
+           itself according to that viewport; otherwise, it will create a
+           default projection of width and height 500px.
+  \item[] \textbf{\texttt{composite(location)}}
+           Project the $(\lambda,\phi)$ point defined by \texttt{location}
+           into $(x,y)$ coordinates.
+  \item[] \textbf{\texttt{invert(point)}}
+           Invert the projection from $(x,y)$ coordinates to longitude and
+           latitude.
+  \item[] \textbf{\texttt{origin([location])}}
+           Set the origin of the projection to the given point, or return
+           the origin of the projection.
+           This is one of the key functions which will change the projection.
+  \item[] \textbf{\texttt{scale([factor])}}
+           Set the scale of the projection, or get the scale.
+           This is the other key function which will change the projection.
+  \item[] \textbf{\texttt{interpolate(origin, destination, $\lambda$)}}
+           Interpolate between an origin and a destination position, backing
+           off to a more holistic view as $\lambda \rightarrow \frac{1}{2}$.
+           This is the key function used to animate transitions.
 \end{itemize}
+
+Furthermore, the changes made to \texttt{d3/geo/path.js} are entirely
+  backwards-compatible with current projections.
+In fact, it fixes a bug in the live version of D3 where viewing the world
+  countries using the Albers Conic projection over the United States will
+  cause Antarctica to cross over the viewport.
+Beyond cases like these, however, the implementation should neither be incorrect
+  or slower for maps which do not need interpolation (e.g., the Mercator
+  projection).
+
