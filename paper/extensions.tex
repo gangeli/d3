@@ -43,6 +43,30 @@ The line between the second point and the third point is incorrectly drawn.
 Using interpolation, the line between the second point and the third point is correctly drawn.
 }
 
+We summarize our algorithm for interpolating points in Algorithm \ref{interpolate}
+
+\begin{algorithm}
+  \caption{Interpolation}\label{interpolate}
+  \begin{algorithmic}[1]
+    \Procedure{interpolate}{$p_0, p_1, \rho_0, \rho_1$}\Comment{Projected $p$; unprojected $\rho$}
+      \If { $||p_0 - p_1||^2 < 25$ }
+        \State \textbf{return} $[p_0, p_1]$
+      \EndIf
+      \State $m \gets$ mean($\rho_0, \rho_1$)
+      \State $pm \gets$ projection(midpoint)
+      \State $d_{a2m} \gets ||p_0 - pm||^2$
+      \State $d_{m2b} \gets ||p_1 - pm||^2$
+      \If { $d_{m2b} > d_{a2m}^2$ }
+        \State \textbf{return} $[\text{INTERPOLATE}(p_0, pm, \rho_0, m), p_1]$
+      \Else
+        \State $a \gets \text{INTERPOLATE}(p_0, pm, \rho_0, m)$
+        \State $b \gets \text{INTERPOLATE}(pm, p_1, m, \rho_1)$
+        \State \textbf{return} $[a, b]$
+      \EndIf
+    \EndProcedure
+  \end{algorithmic}
+\end{algorithm}
+
 \paragraph{Crossing the Antimeridian}
 
 

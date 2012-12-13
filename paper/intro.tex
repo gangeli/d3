@@ -1,4 +1,11 @@
 \Section{intro}{Introduction}
+\Fig{img/screenshot.png}{0.25}{screenshot}{
+  A screenshot of our demo. The top screen shows the view that the user of the
+  map projection would see; the bottom screen shows the projection as it would
+  look from a global perspective.
+  The particular view being shown is an interpolated projection between
+  Albers Conic and Mercator, centered on San Francisco.
+}
 A significant challenge in selecting an appropriate map projection, and
   parametrization for that projection, for visualizing geographic data.
 As no projection is good in every aspect, competing criteria include:
@@ -38,7 +45,8 @@ A recent paper by Bernhard Jenny \cite{key:2012jenny-maps} implemented an
   view the map.
 More details can be found in the Previous Work section.
 
-We implement this paper as a proposed new projection in D3, and extend it to
+We implement this paper as a proposed new projection in D3
+  (see \reffig{screenshot}), and extend it to
   fit the production-ready standard and level of flexibility expected of D3.
 In particular, we address two key challenges:
 
