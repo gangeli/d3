@@ -85,4 +85,13 @@ We would thus like to transition to a Mercator projection, which, in addition,
 The transition is done by interpolating between the middle scale projections
   and Mercator with a simple linear interpolation.
 
+An overview of the behavior of our program, zooming into San Francisco, is
+  given in \reffig{overview}
+\Fig{img/flow.png}{0.4}{overview}{
+An example of the algorithm, zooming in on San Francisco.
+Note that no sharp jumps are noticable (beyond those caused by zooming).
+Nonetheless, note that the graticules are straightening as we zoom in, and by
+  the end we reach the Mercator projection, allowing us to potentially
+  overlay tiles.
+}
 We proceed to discuss the details of each projection in greater depth.
