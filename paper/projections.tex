@@ -1,0 +1,84 @@
+\Section{projections}{Projections Used}
+Some of the projections used in the previous sections are special cases of
+  generalized projections, or reduce to each other in limiting cases.
+In this section we review each of the projections, and their relations to
+  each other.
+In our discussion, we will use $\lambda$ to denote the longitude and $\phi$
+  to denote the latitude of the unprojected point.
+The projected coordinates are denoted by $x$ and $y$.
+
+\Subsection{hammer}{Generalized Hammer}
+A generalized formula can be used to unify both the Hammer and the Lambert
+  Azimuthal projections, given below:
+
+\def\nu{ \sqrt{1 + \cos \phi \cos (\lambda / B)} }
+\begin{align}
+x &= \frac{ B \sqrt{2} \cos \phi \sin (\lambda / B) } { \nu } \\
+y &= \frac{ \sqrt{2} \sin \phi }{ \nu }
+\end{align}
+
+The free variable $B$ can be used to select between the Hammer projection
+  ($B = 2$) or the Lambert Azimuthal projection ($B = 1$).
+Importantly, the parameter can also be varied $1 \leq B \leq 2$ to interpolate
+  smoothly between the two projections.
+
+\paragraph{Rotation Of Origin}
+For these projections, it becomes important to rotate the earth such that it is
+  centered on the center of the viewport.
+While the longitudinal rotation is trivial, rotating towards the poles requires
+  some sphirical geometry.
+Given a rotated longitude $\lambda$, a latitude $\phi$, and a delta $\delta$ by
+  which we would like to move, we compute our new longitude and latitude as:
+
+\def\cosdelta{ \cos \delta }
+\def\sindelta{ \sin \delta }
+\def\clat{ \cos \phi }
+\def\x{ \cos \lambda \clat }
+\def\y{ \sin \lambda \clat }
+\def\z{ \sin \phi }
+\def\k{ \x \sindelta + \z \cosdelta }
+\begin{align}
+\lambda' &= \tan^{-1} \frac{\y}{ \x \cosdelta - \z \sindelta } \\
+\phi' &= \sin^{-1} \k
+\end{align}
+
+Note that the argument to $\sin^{-1}$ in $\phi'$ is constrained to be between
+  -1 and 1 in practice.
+
+\Subsection{albers}{Albers Conic}
+The albers conic projection, given an origin point $(\phi_0, \lambda_0)$
+  and parameterized by standard parallels $\phi_l$ and $\phi_u$,
+  is defined by the formul\ae\ below \cite{key:weisstein-albers}:
+
+\def\th{ n \left( \lambda - \lambda_0 \right) }
+\begin{align}
+x &= \rho \sin ( \th ) \\
+y &= \rho_0 - \rho \cos ( \th )
+\end{align}
+
+Where:
+
+\begin{align*}
+n &= \frac{1}{2} (\sin \phi_l + \phi_u) \\
+C &= \cos^2 \phi_l + 2n\sin \phi_l \\
+\rho &= \frac{
+           \sqrt{ C - 2n \sin \phi }
+         } { n } \\
+\rho_0 &= \frac{
+           \sqrt{ C - 2n \sin \phi_0 }
+         } { n }
+\end{align*}
+
+Note that the Albers Conic projection can be coaxed into the Lambert Azimuthal
+  and Lambert Cylindrical projections by changing the location of the standard
+  parallels.
+
+\Subsection{lambert}{Lambert Cylindrical}
+Perhaps the simplest projection, the Lambert Cylindrical projection is defined
+  as:
+
+\begin{align}
+x &= \lambda - \lambda_0  \\
+y &= \sin \phi
+\end{align}
+

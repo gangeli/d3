@@ -1,1 +1,71 @@
-\cite{key:2001yamada-syntaxmt}
+\Section{intro}{Introduction}
+A significant challenge in selecting an appropriate map projection, and
+  parameterization for that projection, for visualizing geographic data.
+As no projection is good in every aspect, competing criteria include:
+
+\begin{itemize}
+  \item \textbf{Equal area}: A projection should preserve the areas of a
+        polynomial. For instance, the Mercator projection presents innacurate
+        areas near the poles. In contrast, projections such as the Hammer,
+        Lambert Azimuthal, or the Albers Conic projection preserve area.
+  \item \textbf{Conformal}: A projection should preserve local angles.
+        Mercator is an instance of such a projection; in contrast to any of the
+        equal-area projections, which must necessarily distort angles somewhere.
+  \item \textbf{Equidistant}:  Distances are preserved from a standard
+        reference point. Although none of the projections in this paper have
+        this property, an example of the projection is the azimuthal
+        equidistant projection of the UN logo.
+\end{itemize}
+
+In addition, a projection should take into account to following criteria:
+
+\begin{itemize}
+  \item \textbf{Surface}: The choice of projecting onto, e.g., a cylinder versus
+        a cone is often relevant. For example, showing the entire globe on a
+        cone or other uncommon projection may serve to confuse the user more
+        then enlighten them.
+  \item \textbf{Aspect}: Often it is benificial to view the map from an oblique
+        angle; for example, for viewing areas near the poles.
+  \item \textbf{Integration with existing services}: In particular, many of the
+        maps on the internet use the Mercator projection, including importantly
+        Google Maps and OpenStreetMap. It's benificial to be able to interface
+        with these services.
+\end{itemize}
+
+A recent paper by Bernhard Jenny \cite{key:2012jenny-maps} implemented an
+  adaptive projection, which attempts to balance the critera above
+  depending on the user's absolute latitude and the scale at which they
+  view the map.
+More details can be found in the Previous Work section.
+
+We implement this paper as a proposed new projection in D3, and extend it to
+  fit the production-ready standard and level of flexibility expected of D3.
+In particular, we address two key challenges:
+
+\paragraph{Wrapping}
+The shape definitions used to render the globe come already split at the date
+  line.
+However, as we're proposing a map which has far greater flexibility in its
+  viewport; and, should be able to handle user-defined polygons.
+In general these may wrap around the edge of the map, causing artifacts to
+  appear on the projected map.
+We address this problem, described in more detail later, by interpolating paths
+  and robustly detecting when such wrapping occurs.
+The reference implementation handles wrapping for the small-scale projections,
+  but opts to hide invisible polygons in most cases.
+
+\paragraph{Extreme Distortion}
+Certain projections exhibit extreme distortion on the edges of the map.
+Particularly when taken jointly with wrapping, the effect is that there are
+  occasionally phenomena which cannot be solved with interpolation alone.
+The reference implementation does not handle this case.
+
+In addition to these extensions, we implemented smooth animation between
+  local points on a map.
+The motivation is to give users context between two local areas, allowing them
+  to orient themselves at a global, or near global scale, before transitioning
+  to another local viewport.
+In addition to being a useful feature in its own right, this showcases the
+  capability and applicability of the projection, in that it requires accurate
+  projections at many scales, and requires the efficiency to transition
+  between them at a high frame rate.

@@ -6055,6 +6055,17 @@
     function composite(coordinates_degrees, return_wrap) {
       return impl(coordinates_degrees, return_wrap);
     }
+    function toVector(coordinates) {
+      var lon = coordinates[0], lat = coordinates[1], clat = Math.cos(lat);
+      return [ clat * Math.cos(lon), clat * Math.sin(lon), Math.sin(lat) ];
+    }
+    function toCoordinates(n) {
+      return [ Math.atan2(n[1], n[0]), Math.atan2(n[2], Math.sqrt(n[0] * n[0] + n[1] * n[1])) ];
+    }
+    function slerp(n1, n2, t) {
+      var theta = Math.acos(n1[0] * n2[0] + n1[1] * n2[1] + n1[2] * n2[2]), stheta = Math.sin(theta), a = Math.sin((1 - t) * theta) / stheta, b = Math.sin(t * theta) / stheta;
+      return [ n1[0] * a + n2[0] * b, n1[1] * a + n2[1] * b, n1[2] * a + n2[2] * b ];
+    }
     var origin = [ 0, 0 ], scale = 1, width = viewport[2] - viewport[0], height = viewport[3] - viewport[1], smaller_dimension = Math.min(width, height), viewport_center = [ viewport[0] + width / 2, viewport[1] + height / 2 ];
     var albers_conic = function(origin, scale, alpha, dest_parallel) {
       var origin_degrees = [ origin[0] / d3_geo_radians, origin[1] / d3_geo_radians ];
@@ -6084,6 +6095,7 @@
         var xy = impl1.invert(coordinates), xy2 = impl2.invert(coordinates);
         return [ (1 - alpha) * xy[0] + alpha * xy2[0], (1 - alpha) * xy[1] + alpha * xy2[1] ];
       };
+      ret.shouldInterpolate = true;
       return ret;
     }, impl, impl_name = "", select_impl = function(origin, scale, dontInterpolate) {
       var lat = Math.abs(origin[1]) * 180 / Math.PI;
@@ -6109,7 +6121,7 @@
           if (lat < 22) {
             return [ albers_conic(origin, scale, (22 - lat) / (22 - 15), 0), "Albers conic with adjusted standard parallels" ];
           } else if (lat > 60) {
-            return [ albers_conic(origin, scale, (lat - 60) / (75 - 60), 90), "Albers conic with adjusted standard parallels" ];
+            return [ albers_conic(origin, scale, (lat - 60) / (75 - 60), origin[1] > 0 ? 90 : -90), "Albers conic with adjusted standard parallels" ];
           } else {
             return [ albers_conic(origin, scale), "Albers conic" ];
           }
@@ -6158,10 +6170,9 @@
       }
       return true;
     };
-    composite.animate = function(refresh, new_origin, new_scale, num_steps) {
-      if (new_scale == undefined) new_scale = scale;
-      if (num_steps == undefined) num_steps = 100;
-      for (var i = 0; i < num_steps; ++i) {}
+    composite.interpolate = function(coord_degrees, coord_degrees2, t) {
+      var coord1 = [ coord_degrees[0] * d3_geo_radians, coord_degrees[1] * d3_geo_radians ], coord2 = [ coord_degrees2[0] * d3_geo_radians, coord_degrees2[1] * d3_geo_radians ], n1 = toVector(coord1), n2 = toVector(coord2), ret = toCoordinates(slerp(n1, n2, t));
+      return [ ret[0] / d3_geo_radians, ret[1] / d3_geo_radians ];
     };
     return composite;
   };
@@ -6201,12 +6212,18 @@
       var cosdelta = Math.cos(delta), sindelta = Math.sin(delta), clat = Math.cos(latitude), x = Math.cos(longitude) * clat, y = Math.sin(longitude) * clat, z = Math.sin(latitude), k = x * sindelta + z * cosdelta;
       return [ Math.atan2(y, x * cosdelta - z * sindelta), Math.asin(Math.max(-1, Math.min(1, k))) ];
     }
+    function rotateLatitudeInverse(longitude, latitude, delta) {
+      var cosdelta = Math.cos(delta), sindelta = Math.sin(delta), clat = Math.cos(latitude), x = Math.cos(longitude) * clat, y = Math.sin(longitude) * clat, z = Math.sin(latitude), k = z;
+      return [ Math.atan2(y, x * cosdelta + k * sindelta), Math.asin(Math.max(-1, Math.min(1, k * cosdelta - x * sindelta))) ];
+    }
     function hammer(coordinates_degrees) {
       var lon = coordinates_degrees[0] * d3_geo_radians - origin[0], lat = coordinates_degrees[1] * d3_geo_radians;
       while (lon < -Math.PI) lon += Math.PI * 2;
       while (lon > Math.PI) lon -= Math.PI * 2;
       var center = rotateLatitude(lon, lat, -origin[1]), lon = center[0], lat = center[1];
-      var sqrt2 = Math.sqrt(2), clat = Math.cos(lat), slat = Math.sin(lat), sin_lon_over_b = Math.sin(lon / B), cos_lon_over_b = Math.cos(lon / B), nu = Math.sqrt(1 + clat * cos_lon_over_b), x = B * sqrt2 * clat * sin_lon_over_b / nu, y = -sqrt2 * slat / nu;
+      var sqrt2 = Math.sqrt(2), clat = Math.cos(lat), slat = Math.sin(lat), sin_lon_over_b = Math.sin(lon / B), cos_lon_over_b = Math.cos(lon / B), nu = Math.sqrt(1 + clat * cos_lon_over_b);
+      if (nu == 0) nu = 1e-12;
+      var x = B * sqrt2 * clat * sin_lon_over_b / nu, y = -sqrt2 * slat / nu;
       return [ scale * .5 * x + translate[0], scale * .5 * y + translate[1] ];
     }
     function aasin(v) {
@@ -6240,6 +6257,20 @@
         lat = aasin(z * y);
       }
       return [ (lon + origin[0]) / d3_geo_radians, (lat + origin[1]) / d3_geo_radians ];
+    };
+    if (1) hammer.invert = function(coordinates) {
+      var x = (coordinates[0] - translate[0]) / (scale * .5), y = -(coordinates[1] - translate[1]) / (scale * .5);
+      var wx = x / B;
+      var lon, lat;
+      var z = Math.sqrt(1 - .25 * (wx * wx + y * y));
+      var zz2_1 = 2 * z * z - 1;
+      if (zz2_1 == 0) zz2_1 = 1e-10;
+      lon = aatan2(wx * z, zz2_1) * B;
+      lat = aasin(z * y);
+      var center = rotateLatitudeInverse(lon, lat, -origin[1]);
+      lon = center[0];
+      lat = center[1];
+      return [ (lon + origin[0]) / d3_geo_radians, lat / d3_geo_radians ];
     };
     hammer.origin = function(origin_degrees) {
       if (!arguments.length) {
@@ -6340,25 +6371,25 @@
       return Math.sqrt((v1[0] - v2[0]) * (v1[0] - v2[0]) + (v1[1] - v2[1]) * (v1[1] - v2[1]));
     }
     function interpolate(a, b, origA, origB, depth) {
-      var midpoint = [ (origA[0] + origB[0]) / 2, (origA[1] + origB[1]) / 2 ], projectedMidpoint = projection(midpoint), a2midpoint = normdiff(a, projectedMidpoint), midpoint2b = normdiff(projectedMidpoint, b), norm = normdiff(a, b), tree = {};
-      if (norm < acceptableLength || depth > 20) {
-        tree.render = function() {
+      if (normdiff(a, b) < acceptableLength || depth > 20) {
+        return function() {
           buffer.push("L", b.join(","));
         };
-      } else if (midpoint2b > Math.pow(a2midpoint, magnitudeMargin)) {
+      }
+      var midpoint = [ (origA[0] + origB[0]) / 2, (origA[1] + origB[1]) / 2 ], projectedMidpoint = projection(midpoint), a2midpoint = normdiff(a, projectedMidpoint), midpoint2b = normdiff(projectedMidpoint, b);
+      if (midpoint2b > Math.pow(a2midpoint, magnitudeMargin)) {
         var leftChild = interpolate(a, projectedMidpoint, origA, midpoint, depth + 1);
-        tree.render = function() {
-          leftChild.render();
+        return function() {
+          leftChild();
           buffer.push("M", b.join(","));
         };
       } else {
         var leftChild = interpolate(a, projectedMidpoint, origA, midpoint, depth + 1), rightChild = interpolate(projectedMidpoint, b, midpoint, origB, depth + 1);
-        tree.render = function() {
-          leftChild.render();
-          rightChild.render();
+        return function() {
+          leftChild();
+          rightChild();
         };
       }
-      return tree;
     }
     function projectPath(buffer, coordinates, isPolygon) {
       var projected = [], n = coordinates.length, i;
@@ -6387,7 +6418,7 @@
         }
       }
       buffer.push("M", projected[0].join(","));
-      for (var i = 0; i < trees.length; ++i) trees[i].render();
+      for (var i = 0; i < trees.length; ++i) trees[i]();
       if (isPolygon) buffer.push("Z");
     }
     function polygonArea(coordinates) {

@@ -10,22 +10,6 @@ d3.geo.hammer = function(B) {
       scale  = 500.0,
       translate = [480, 250];
 
-  function rotate(forward, δλ, δφ, δγ) {
-    return δλ ? (δφ || δγ ? rotateλ(rotateφγ(forward, δφ, δγ), δλ)
-      : rotateλ(forward, δλ))
-      : (δφ || δγ ? rotateφγ(forward, δφ, δγ)
-      : forward);
-  }
-
-  function rotateλ(forward, δλ) {
-    return function(λ, φ) {
-      return forward(
-        (λ += δλ) > π ? λ - 2 * π : λ < -π ? λ + 2 * π : λ,
-        φ
-      );
-    };
-  }
-
   function rotateLatitude(longitude, latitude, delta) {
     var cosdelta = Math.cos(delta),
         sindelta = Math.sin(delta),

@@ -1,0 +1,88 @@
+\Section{previous}{Previous Work}
+The bulk of our project comes from the reimplimentation of a recent paper
+  \cite{key:2012jenny-maps}; we summarize the approach here.
+
+Much of the insight from Jenny's paper, in turn, stems from an earlier work
+  by Snyder \cite{key:1987snyder-maps}, outlining a decision tree for which
+  projections to use depending on the scale and location of the projection
+  center.
+In particular, Snyder proposed the following projections for different scales.
+The projections used in our approach are distinguished in \textit{italics}
+
+\begin{itemize}
+  \item \textbf{World} \textit{Hammer}, Mollweide, Eckert IV or VI,
+        McBryde, Boggs Eumorphic, Sinusoidal, or miscellaneous pseudocylindricals.
+  \item \textbf{Hemisphere} \textit{Lambert Azimuthal}
+  \item \textbf{Smaller Areas} We focus on square and landscape maps, for which
+        Snyder proposes \textit{Lambert Cylindrical}, \textit{Albers Conic},
+        and \textit{Lambert Azimuthal}.
+\end{itemize}
+
+Jenny outlines the criteria being optimized, which we in turn inherit:
+
+\begin{itemize}
+  \item \textbf{Distortion} An emphasis is placed on equal-area projections,
+        particularly at large scales.
+  \item \textbf{Graticules} Graticules are constrained by the
+        following criteria:
+        (1) They should be outward-pointing and not unusually-shaped;
+        (2) The equator should be a straight line when the map is centered on it;
+        (3) Straight longitude and latitude graticules are prefered where possible;
+        and
+        (4) Straight meridians should be used in polar views.
+  \item \textbf{Esthetics} Esthetically, maps with eliptical borders are
+        prefered to those with rectangular shapes.
+  \item \textbf{Continuity} There should be continuity in the transitions
+        between projections -- this is particulary important to our application,
+        to help with smooth animations.
+\end{itemize}
+
+\FigStar{img/projections.png}{0.4}{jenny}{
+A summary of projections used at different scales and absolute latitudes.
+The $x$ axis denotes scale; the value corresponds to inverse fraction of the
+  map the current viewport occupies.
+Thus, at an $x$ value of 5, the viewport is $\frac{1}{5}$ the size of the map.
+The $y$ axis corresponds to the absolute latitude of the center of the map;
+  0 lies along the equator, which 90 is at the poles.
+}
+
+The final decision tree arrived at by the paper is summarized in
+  \reffig{jenny}, and described in more detail below.
+The details of the projections used are summarized in the next section.
+
+\paragraph{World and Hemisphere Views}
+At the world and hemisphere views, the paper suggests the Hammer and Lambert
+  Azimuthal projections.
+These are, in fact, two instances of the same generalized projection;
+  interpolation is done smoothly between them by varying the hyperparameter
+  which differentiates the projections.
+At extreme latitudes, a polar aspect is used.
+This results in the initially strange, but actually fairly useful phenomena
+  where the map centers and distorts around a pole.
+For example, the relatively small distance between North America and Europe
+  over the North pole becomes far more salient.
+
+\paragraph{Middle Views}
+Most of the differentiation in projections come from the middle scales -- on the
+  order of continents or countries.
+In particular, near the equator we select the Lambert Cylindrical projection,
+  optimizing for straight graticules.
+Near the equator, this transitions seamlessly from Lambert Azimuthal.
+In the majority of the middle latitudes, we use the Albers Conic projection.
+Since we are sufficiently zoomed in, we do not see the esthetically unappealing
+  properties of the conic projection; furthermore, the transition from
+  Lambert Azimuthal is fairly painless.
+Lastly, at extreme latitudes we maintain the Lambert Azimuthal projection.
+
+\paragraph{Local Views}
+A key practical consideration, as mentioned above, is to allow the adaptive
+  projection to interface with other web services.
+Importantly, to interface with tile-based services such as Google Maps and
+  OpenStreetMap.
+We would thus like to transition to a Mercator projection, which, in addition,
+  preserves angle and shape accuracy for the small objects we are likely to
+  see at this scale.
+The transition is done by interpolating between the middle scale projections
+  and Mercator with a simple linear interpolation.
+
+We proceed to discuss the details of each projection in greater depth.

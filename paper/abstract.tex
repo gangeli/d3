@@ -1,0 +1,16 @@
+\begin{abstract}
+
+Selecting a map projection for a visualization is a challenging problem,
+  as different projections are better suited for different purposes, and in
+  particular for different scales.
+We implemented as an extension to D3 a recent paper on the topic,
+  which produces a composite projection between zoom levels and latitudes.
+The implementation ensures that a reasonable projection is chosen for any
+  given reference frame, and that the transition between these projections
+  is seamless.
+We extended the method in the paper in two key ways:
+  (1) We interpolate paths and handle edge cases more robustly than the paper's
+      proof-of-concept implementation, and
+  (2) We implemented smooth animations between map locations which provide
+      global context for the move.
+\end{abstract}
