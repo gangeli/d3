@@ -1,0 +1,105 @@
+\Section{extensions}{Extensions}
+
+In addition to implementing \cite{key:2012jenny-map} in D3, we create a number of extensions to the approach, largely focused on refining it to be appropriate for a production-ready environment.
+These improvements are described in the following sections:
+
+\Subsection{remove_visual_artifacts}{Removing Visual Artifacts}
+
+Several techniques are employed to minimize visual artifacts that appear from using D3.
+These techniques are chosen to preserve the fidelity of the data without compromising the rendering speed too much.
+
+\paragraph{Coarse Granularity}
+
+In D3, after the map is projected onto a plane, lines are drawn from point to point using a straight line in the Cartesian coordinate system. To draw more accurately, we need to draw along the great-circle arc between points, but this is computationally expensive as it involves the use of trigonometric functions and many lines drawn. Drawing a straight line in the Cartesian coordinate system is visually acceptable as long as points are not too far apart from each other. However, this becomes a problem when points are too far apart. For example, in \reffig{p_mercator}, a straight line is drawn in the Mercator projection between two endpoints. When the map transforms to the Albers conic projection, the same line is still drawn between the two endpoints, causing a visual artifact.
+
+\Fig{img/p_mercator.png}{0.2}{p_mercator}{
+A straight line in the Mercator projection.
+}
+
+\Fig{img/p_albers.png}{0.2}{p_albers}{
+The same line in the Albers conic projection drawn without interpolation.
+}
+
+\Fig{img/p_albers2.png}{0.2}{p_albers2}{
+The same line in the Albers conic projection drawn with interpolation.
+}
+
+We solve this problem by interpolating lines, attempting to use as few additional points as possible. To interpolate a line, we find the middle point between the two original endpoints using the average latitude and longitude, project the middle point onto a plane, and then calculate the distance between the projected middle point and each of the projected endpoints. If the distance is within a certain threshold, we draw that part. If not, we recursively divide the line until the length of each part is within the threshold.
+
+\paragraph{Discontinuity}
+
+Map projection transformations are not continuous functions. Therefore, it is possible that a straight line, after being projected, might be cut into multiple parts and each part appear at different sides. For example, in \reffig{con1}, a line is formed by four points. After we rotate the map to the left, two points are moved to the right. But the line between the second point and the third point is still drawn, as in \reffig{con2}. This can be easily fixed in the interpolation by using the fact that if the line is continuous, the length of each part after being cut will converge to zero. But if the line is not continuous, one of the parts will not converge to zero. Therefore, we limit depth of the recursion and cut the line if, after reaching the limit, the length of the line is still greater than the threshold.
+
+\Fig{img/con1.png}{0.2}{con1}{
+A line formed by four points in the Hammer projection.
+}
+
+\Fig{img/con2.png}{0.2}{con2}{
+As we rotate the map, two points are moved to the right.
+The line between the second point and the third point is incorrectly drawn.
+}
+
+\Fig{img/con3.png}{0.2}{con3}{
+Using interpolation, the line between the second point and the third point is correctly drawn.
+}
+
+\paragraph{Crossing the Antimeridian}
+
+
+The demo that we created allows the user to draw a great-circle arc between any two points. However, when the arc crosses the antimeridian (the 180th meridian), a line will be drawn from the left edge to the right edge, causing a visual artifact. For example, in \reffig{am}, the great-circle arc between $(170W, 0)$ and $(170E, 0)$ is drawn through  $(170W, 0), (160W, 0), \dots$, and $(170E, 0)$ instead of being drawn through $(170W, 0)$, $(180W, 0)$, and $(170E, 0)$.
+
+\Fig{img/am.png}{0.2}{am}{
+A great-circle arc crossing the antimeridian with incorrect interpolation.
+}
+
+\Fig{img/am2.png}{0.2}{am2}{
+A great-circle arc crossing the antimeridian with correct interpolation.
+}
+
+This problem cannot be solved by using interpolation alone because when we find the middle point between two points, we use the average latitude and the longitude as the middle point, which is not the actual middle point of the great-circle arc. For example, in \reffig{am}, the middle point that we calculate is $((-170+170)/2,(0+0)/2)$ = $(0, 0)$, which is not the actual middle point $(180W, 0)$. Hence, the distance of each part converges to zero as if the transformed line was continuous.
+
+One way to solve this problem is to interpolate lines using the actual middle point of the great-circle arc of two endpoints, but this, again, is computationally expensive as we need to use trigonometric functions and it is a function that is called extremely frequently. Another way to solve this problem is to cut the data along the antimeridian. This ensures that when we find the middle point between any two points using the average latitude and longitude, the calculated point will not be too far from the actual middle point. For example, we cut the line $(170W, 0)$--$(170E, 0)$ into $(170W, 0)$--$(180W, 0)$  and $(180E, 0)$--$(170E, 0)$. Since $(180W, 0)$ and $(180E, 0)$ are the same point, the line will appear continuous when the user rotates the map.
+
+\paragraph{Extreme Distortion}
+A nuanced problem arises in the Lambert Azimuthal projection, and the Hammer
+  variants which approach it.
+When a polygon of nonzero width is projected onto the edge of the map, it
+  begins to distort into a crescent shape, eventually becoming a half-circle.
+In itself, this can be faithfully rendered by interpolating the polygon.
+However, in certain cases the splitting line goes down the center of the
+  polygon, and we get as a result two opposing half-circles, one on each side
+  of the map.
+The effect is that our interpolated path becomes a full circle, without large
+  jumps or visible discontinuities, as the location of the jump is at the pole.
+Since we naively fill any polygon we render, the visual result is a colored
+  circle overlaying the rest of the map.
+This is relevant as Antarctica distorts into the bottom of the map, or as
+  continents distort off of the sides (e.g., South America or Africa).
+
+We address this problem by querying the projection regarding whether a
+  proposed path will undergo extreme distortion.
+If every vertex in the path is beyond a threshold, the path is not rendered.
+This causes polygons near the edge of the map to disappear after a certain
+  point; however, by then they are thin enough that the practical effect is
+  minimal.
+
+Importantly, we note that the proof-of-concept implementation does not handle
+  this case, despite having the benefit of hiding polygons as they exit the
+  viewport.
+See \reffig{reference_bug}, or center the demo at zoom level 2.1 and coordinates
+  $(100W, 65S)$.
+
+\Fig{img/reference_bug.png}{0.25}{reference_bug}{
+  A snapshot of the reference implementation from Jenny,
+  found at
+  \texttt{http://cartography.oregonstate.edu/ demos/CompositeMapProjection/}.
+  The coordinates are $(100W, 65S)$ at a zoom of 2.1.
+  Note that Russia has distorted around the map, causing polygons to close
+  themselves in front of the globe.
+}
+
+\Subsection{animation}{Animation}
+
+Another extension that we added to the map is animation. The user can drag the mouse cursor on the global map to create a great-circle arc. Then the user can click the Animate button to move the map along the arc. To implement this, we first convert the Cartesian coordinates of the mouse cursor into the spherical coordinates. Then we convert the spherical coordinates into normal vectors, and use spherical linear interpolation (Slerp) to find points on the arc. This animation is useful for visualizing, for example, the path an airplane should fly to get to the destination in the shortest time.
+
+
