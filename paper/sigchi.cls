@@ -1526,8 +1526,6 @@ not made or distributed for profit or commercial advantage and that copies
 bear this notice and the full citation on the first page. To copy otherwise,
 or republish, to post on servers or to redistribute to lists, requires prior
 specific permission and/or a fee.\\
-{\confname{CHI'12}}, May 5--10, 2012, Austin, Texas, USA.\\
-Copyright 2012 ACM 978-1-4503-1015-4/12/05...\$10.00.
 }
 % End of chi2012.cls - version 0.01	
 
