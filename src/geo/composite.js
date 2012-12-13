@@ -7,6 +7,9 @@
 var d3_geo_radians = Math.PI / 180;
 
 d3.geo.composite = function(viewport) {
+  if (viewport == undefined) {
+    viewport = [500, 500];
+  }
   var origin = [0, 0],
       scale  = 1.0,
       width  = viewport[2] - viewport[0],
