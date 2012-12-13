@@ -46,14 +46,14 @@ Using interpolation, the line between the second point and the third point is co
 \paragraph{Crossing the Antimeridian}
 
 
-The demo that we created allows the user to draw a great-circle arc between any two points. However, when the arc crosses the antimeridian (the 180th meridian), a line will be drawn from the left edge to the right edge, causing a visual artifact. For example, the great-circle arc between $(170W, 0)$ and $(170E, 0)$ is drawn through  $(170W, 0), (160W, 0), \dots$, and $(170E, 0)$ instead of being drawn through $(170W, 0)$, $(180W, 0)$, and $(170E, 0)$.
+The demo that we created allows the user to draw a great-circle arc between any two points. However, when the arc crosses the antimeridian (the 180th meridian), a line will be drawn through a longer path that does not cross the antimeridian, causing a visual artifact. For example, the great-circle arc between $(170W, 0)$ and $(170E, 0)$ is drawn through  $(170W, 0), (160W, 0), \dots$, and $(170E, 0)$ instead of being drawn through $(170W, 0)$, $(180W, 0)$, and $(170E, 0)$.
 
 \Fig{img/am.png}{0.2}{am}{
-A great-circle arc crossing the antimeridian with incorrect interpolation.
+The great-circle arc between the United States and Australia. The arc crosses the antimeridian and is drawn with incorrect interpolation.
 }
 
 \Fig{img/am2.png}{0.2}{am2}{
-A great-circle arc crossing the antimeridian with correct interpolation.
+The great-circle arc between the United States and Australia drawn with correct interpolation.
 }
 
 This problem cannot be solved by using interpolation alone because when we find the middle point between two points, we use the average latitude and the longitude as the middle point, which is not the actual middle point of the great-circle arc. For example, the middle point that we calculate between $(170W, 0)$ and $(170E, 0)$ is $((-170+170)/2,(0+0)/2)$ = $(0, 0)$, which is not the actual middle point $(180W, 0)$. Hence, the distance of each part converges to zero as if the transformed line was continuous.
@@ -100,6 +100,6 @@ See \reffig{reference_bug}, or center the demo at zoom level 2.1 and coordinates
 
 \Subsection{animation}{Animation}
 
-Another extension that we added to the map is animation. The user can drag the mouse cursor on the global map to create a great-circle arc. Then the user can click the Animate button to move the map along the arc. To implement this, we first convert the Cartesian coordinates of the mouse cursor into the spherical coordinates. Then we convert the spherical coordinates into normal vectors, and use spherical linear interpolation (Slerp) to find points on the arc. This animation is useful for visualizing, for example, the path an airplane should fly to get to the destination in the shortest time.
+Another extension that we added to the map is animation. The user can drag the mouse cursor on the global map to create a great-circle arc. Then the user can click the Animate button to move the map along the arc. To implement this, we first convert the Cartesian coordinates of the mouse cursor into the spherical coordinates. Then we convert the spherical coordinates into normal vectors, and use spherical linear interpolation (Slerp) to find points on the arc with an equal distance between points. We also make use of an ease function to make the animation appear smooth. This animation is useful for visualizing, for example, the path an airplane should fly to get to the destination in the shortest time.
 
-
+Furthermore, when animating, we zoom out for a wide view of the globe first to give the user the context of where he or she is. As we get close to the destination, we zoom in again. This has the advantage that a visualization developer can move to significantly different areas of the globe without worrying that the user would get confused. For example, we can use animation to visualize a typhoon path in fine-grained detail and coherently move the user to different parts of the globe to visualize another typhoon.
