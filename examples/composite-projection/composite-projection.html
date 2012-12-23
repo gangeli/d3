@@ -1,0 +1,189 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+canvas {
+  border: 1px #000 solid;
+}
+</style>
+</head>
+<body>
+<script src="../../src/core/core.js"></script>
+<script src="../../d3.js"></script>
+<script src="d3.geo.projection.v0.min.js"></script>
+<script src="topojson.v0.min.js"></script>
+<script src="../../src/core/true.js"></script>
+<script src="../../src/core/noop.js"></script>
+<script src="../../src/geo/cartesian.js"></script>
+<script src="../../src/geo/clip.js"></script>
+<script src="../../src/geo/compose.js"></script>
+<script src="../../src/geo/equirectangular.js"></script>
+<script src="../../src/geo/rotation.js"></script>
+<script src="../../src/geo/clip-antimeridian.js"></script>
+<script src="../../src/geo/resample.js"></script>
+<script src="../../src/geo/projection.js"></script>
+<script src="hammer.js"></script>
+<script src="lambert.js"></script>
+<script src="../../src/geo/composite.js"></script>
+<script>
+
+var width = 960,
+    height = 500;
+
+var projection = d3.geo.composite([0, 0, width, height])
+    .translate([width / 2, height / 2]);
+    
+
+var graticule = d3.geo.graticule();
+
+var canvas = d3.select("body").append("canvas")
+    .attr("width", width)
+    .attr("height", height);
+
+var context = canvas.node().getContext("2d");
+context.fillStyle = "rgb(165, 191, 221)";
+
+var path = d3.geo.path()
+    .projection(projection)
+    .context(context);
+
+
+
+var canvas2 = d3.select("body").append("canvas")
+    .attr("width", width)
+    .attr("height", height);
+
+var context2 = canvas2.node().getContext("2d");
+context2.fillStyle = "rgb(165, 191, 221)";
+context2.font = "bold 20px Helvetica, Arial";
+
+
+var land;
+
+d3.json("world-110m.json", function(error, world) {
+  land = topojson.object(world, world.objects.land);
+  refresh();
+});
+
+
+function refresh() {
+  path.context(context);
+  
+  context.clearRect(0, 0, width, height);
+  //projection.rotate([origin + velocity * (Date.now() - t0), 0]);
+
+  context.beginPath();
+  path(land);
+  context.fill();
+  context.stroke();
+
+  context.beginPath();
+  path(graticule());
+  context.lineWidth = .5;
+  context.stroke();
+
+//   context.beginPath();
+//   path(graticule.outline());
+//   context.lineWidth = 1.5;
+//   context.stroke();
+  
+  
+  
+  path.context(context2);
+  
+  context2.clearRect(0, 0, width, height);
+  
+  context2.save();
+  var scale = 200 / projection.scale();
+  context2.translate(width / 2, height / 2);
+  context2.scale(scale, scale);
+  context2.translate(-width / 2, -height / 2);
+  
+  context2.fillStyle = "rgb(165, 191, 221)";
+
+  context2.beginPath();
+  
+  path(land);
+  
+  context2.lineWidth = 1 / scale;
+  context2.fill();
+  context2.stroke();
+  
+
+  context2.beginPath();
+  path(graticule());
+  context2.lineWidth = .5 / scale;
+  context2.stroke();
+
+//   context2.beginPath();
+//   path(graticule.outline());
+//   context2.lineWidth = 1.5 / scale;
+//   context2.stroke();
+
+  context2.strokeStyle = "red";
+  context2.strokeRect(0, 0, width, height);
+  
+  context2.restore();
+  
+  var text = projection.projectionName();
+  context2.fillStyle = "black";
+  context2.fillText(text, width - 40 - context2.measureText(text).width, 40);
+}
+
+
+function mouseOffset(e) {
+  var el = e.target,
+      x = y = 0;
+  while (el) {
+    x += el.offsetLeft - el.scrollLeft;
+    y += el.offsetTop - el.scrollTop;
+    el = el.offsetParent;
+  }
+  return [e.clientX - x, e.clientY - y];
+}
+
+var mouseState = 0;
+var localMap = canvas.node();
+var prevCoordinates;
+
+localMap.addEventListener("mousedown", function(e) {
+  mouseState = 1;
+  prevCoordinates = mouseOffset(e);
+  e.preventDefault();
+});
+
+localMap.addEventListener("mousemove", function(e) {
+  if (mouseState == 1) {
+    var coordinates = mouseOffset(e);
+    var prevD = projection.invert(prevCoordinates);
+    var D = projection.invert(coordinates);
+    var origin = projection.origin();
+    origin[0] += prevD[0] - D[0];
+    origin[1] += prevD[1] - D[1];
+    projection.origin(origin);
+    refresh();
+    prevCoordinates = coordinates;
+  }
+});
+
+document.addEventListener("mouseup", function(e) {
+  mouseState = 0;
+});
+
+var mousewheel = function (e) {
+  var delta = e.wheelDelta ? e.wheelDelta : e.detail,
+      scale = projection.scale() * (delta / 2000 + 1);
+  if (scale < 200)
+    scale = 200;
+  projection.scale(scale);
+  refresh();
+  e.preventDefault();
+};
+
+localMap.addEventListener(localMap.hasOwnProperty("onmousewheel") ?
+  "mousewheel" : "DOMMouseScroll", mousewheel);
+</script>
+</body>
+</html>
