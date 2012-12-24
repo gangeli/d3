@@ -96,7 +96,7 @@ function refresh() {
   context2.clearRect(0, 0, width, height);
   
   context2.save();
-  var scale = 200 / projection.scale();
+  var scale = 100 / projection.scale();
   context2.translate(width / 2, height / 2);
   context2.scale(scale, scale);
   context2.translate(-width / 2, -height / 2);
@@ -175,8 +175,8 @@ document.addEventListener("mouseup", function(e) {
 var mousewheel = function (e) {
   var delta = e.wheelDelta ? e.wheelDelta : e.detail,
       scale = projection.scale() * (delta / 2000 + 1);
-  if (scale < 200)
-    scale = 200;
+  if (scale < 100)
+    scale = 100;
   projection.scale(scale);
   refresh();
   e.preventDefault();

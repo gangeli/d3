@@ -4,17 +4,15 @@
 //
 // Implemented by Sukolsak Sakshuwong and Gabor Angeli
 
-var d3_geo_radians = Math.PI / 180;
-
 d3.geo.composite = function(viewport) {
   if (viewport == undefined) {
     viewport = [0, 0, 960, 500];
   }
   var origin = [0, 0],
-      scale  = 200.0,
+      scale  = 100.0,
       width  = viewport[2] - viewport[0],
       height = viewport[3] - viewport[1],
-      smaller_dimension = Math.min(width, height),
+      smaller_dimension = Math.min(width, height) * 0.5,
       viewport_center = [viewport[0] + width/2, viewport[1] + height/2];
 
   var albers_conic = function(origin, scale, alpha, dest_parallel) {
@@ -35,7 +33,7 @@ d3.geo.composite = function(viewport) {
              top_parallel])
            .rotate([-origin[0], 0])
            .center([0, origin[1]])
-           .scale(scale * smaller_dimension * 0.5)
+           .scale(scale * smaller_dimension)
            ;
        },
      hammer = function(B, origin, scale) {
@@ -45,8 +43,7 @@ d3.geo.composite = function(viewport) {
            .rotate([-origin[0], -origin[1]]);
        },
      lambert_azimuthal = function(origin, scale) {
-        return d3.geo.hammer()
-           .B(1)
+        return d3.geo.azimuthalEqualArea()
            .scale(scale * smaller_dimension)
            .rotate([-origin[0], -origin[1]]);
        },
@@ -56,10 +53,9 @@ d3.geo.composite = function(viewport) {
            .center(origin);
        },
      mercator = function(origin, scale) {
-         var merc = d3.geo.mercator()
-           .scale(scale * smaller_dimension * 3.14) // FIXME: magic number
+         return d3.geo.mercator()
+           .scale(scale * smaller_dimension * 2 * π)
            .center(origin);
-         return merc;
        },
      mercator_interpolated = function(origin, scale, alpha) {
        var impl1 = select_impl(origin, scale, true)[0],
@@ -148,12 +144,14 @@ d3.geo.composite = function(viewport) {
   
   composite.clipAngle = function(_) {
     if (!arguments.length) return impl.clipAngle;
+    //FIXME: not persistent
     impl = impl.clipAngle(_);
     return composite;
   };
   
   composite.translate = function(_) {
     if (!arguments.length) return impl.translate();
+    //FIXME: not persistent
     impl = impl.translate(_);
     return composite;
   };

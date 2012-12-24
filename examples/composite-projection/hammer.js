@@ -22,10 +22,7 @@ function d3_geo_hammer(B) {
       nu = 1e-12;
     var x = B * sqrt2 * clat * sin_lon_over_b / nu,
         y = sqrt2 * slat / nu;
-    return [
-      0.5 * x,
-      0.5 * y
-    ];
+    return [x, y];
   }
   
   function aasin(v) {
@@ -45,9 +42,7 @@ function d3_geo_hammer(B) {
     return ((Math.abs(n) < ATOL && Math.abs(d) < ATOL) ? 0 : Math.atan2(n, d));
   }
 
-  hammer.invert = function(_x, _y) {
-    var x = _x / 0.5,
-    y = _y / 0.5;
+  hammer.invert = function(x, y) {
     var wx = x / B;
     var lon, lat;
     var z = Math.sqrt(1 - 0.25 * (wx * wx + y * y));

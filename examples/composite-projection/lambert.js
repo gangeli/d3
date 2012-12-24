@@ -6,13 +6,11 @@
 
 function d3_geo_lambert_cylindrical() {
   function lambert_cylindrical(λ, φ) {
-    return [λ / 2,
-            Math.sin(φ) / 2];
+    return [λ, Math.sin(φ)];
   }
 
   lambert_cylindrical.invert = function(x, y) {
-    return [x * 2,
-            Math.asin(y * 2)];
+    return [x, Math.asin(y)];
   };
 
   return lambert_cylindrical;
