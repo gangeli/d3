@@ -61,21 +61,24 @@ d3.geo.composite = function(viewport) {
        var impl1 = select_impl(origin, scale, true)[0],
            impl2 = mercator(origin, scale);
        var p = function(λ, φ) {
-       λ *= d3_degrees;
-       φ *= d3_degrees;
+         λ *= d3_degrees;
+         φ *= d3_degrees;
          var xy = impl1([λ, φ]),
              xy2 = impl2([λ, φ]);
          return [(1 - alpha) * xy[0] + alpha * xy2[0],
                  -((1 - alpha) * xy[1] + alpha * xy2[1])];
        };
        p.invert = function(x, y) {
-         var xy = impl1.invert([x, y]),
-             xy2 = impl2.invert([x, y]);
+         var xy = impl1.invert([x, -y]),
+             xy2 = impl2.invert([x, -y]);
          return [((1 - alpha) * xy[0] + alpha * xy2[0]) * d3_radians,
-         ((1 - alpha) * xy[1] + alpha * xy2[1]) * d3_radians];
+                 ((1 - alpha) * xy[1] + alpha * xy2[1]) * d3_radians];
        };
        
-       var ret = d3_geo_projection(p).rotate([0, 0]).center([0, 0]).scale(1);
+       var center = p(0, 0);
+       var ret = d3_geo_projection(p)
+         .scale(1)
+         .translate([center[0], -center[1]]);
        ret.raw = p;
        return ret;
      },
