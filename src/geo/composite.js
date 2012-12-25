@@ -50,37 +50,54 @@ d3.geo.composite = function(viewport) {
      lambert_cylindrical = function(origin, scale) {
          return d3.geo.lambert_cylindrical()
            .scale(scale * smaller_dimension)
-           .center(origin);
+           .rotate([-origin[0], 0])
+           .center([0, origin[1]]);
        },
      mercator = function(origin, scale) {
          return d3.geo.mercator()
            .scale(scale * smaller_dimension * 2 * π)
-           .center(origin);
+           .rotate([-origin[0], 0])
+           .center([0, origin[1]]);
        },
-     mercator_interpolated = function(origin, scale, alpha) {
-       var impl1 = select_impl(origin, scale, true)[0],
-           impl2 = mercator(origin, scale);
+     interpolation = function(impl1, impl2, α, δλ) {
+       var rotateλ = function(projection, δλ) {
+         var rotate = projection.rotate();
+         rotate[0] += δλ;
+         return projection.rotate(rotate);
+       }
+       impl1 = rotateλ(impl1, δλ);
+       impl2 = rotateλ(impl2, δλ);
        var p = function(λ, φ) {
-         λ *= d3_degrees;
-         φ *= d3_degrees;
-         var xy = impl1([λ, φ]),
-             xy2 = impl2([λ, φ]);
-         return [(1 - alpha) * xy[0] + alpha * xy2[0],
-                 -((1 - alpha) * xy[1] + alpha * xy2[1])];
+         var point = [λ * d3_degrees, φ * d3_degrees],
+             xy = impl1(point),
+             xy2 = impl2(point);
+         return [
+           ((1 - α) * xy[0] + α * xy2[0]),
+           -((1 - α) * xy[1] + α * xy2[1])
+         ];
        };
        p.invert = function(x, y) {
-         var xy = impl1.invert([x, -y]),
-             xy2 = impl2.invert([x, -y]);
-         return [((1 - alpha) * xy[0] + alpha * xy2[0]) * d3_radians,
-                 ((1 - alpha) * xy[1] + alpha * xy2[1]) * d3_radians];
+         var point = [x, -y];
+         var xy = impl1.invert(point),
+             xy2 = impl2.invert(point);
+         return [
+           ((1 - α) * xy[0] + α * xy2[0]) * d3_radians,
+           ((1 - α) * xy[1] + α * xy2[1]) * d3_radians
+         ];
        };
        
        var center = p(0, 0);
        var ret = d3_geo_projection(p)
+         .rotate([-δλ, 0]) // need to rotate here to make the antimeridian cutting work
          .scale(1)
          .translate([center[0], -center[1]]);
        ret.raw = p;
        return ret;
+     },
+     mercator_interpolated = function(origin, scale, α) {     
+       var impl1 = select_impl(origin, scale, true)[0],
+           impl2 = mercator(origin, scale);
+       return interpolation(impl1, impl2, α, origin[0]);
      },
 
      impl,
